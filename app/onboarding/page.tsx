@@ -73,7 +73,10 @@ export default function OnboardingPage() {
 
   return (
     <main className="flex-1 flex flex-col justify-between px-6 sm:px-7 pt-20 pb-7 relative min-h-dvh">
-      <Header onBack={handleBack} />
+     <Header 
+  showBack={true} 
+  onBack={handleBack} 
+/>
 
       <div className="flex-1 flex flex-col justify-between">
         <div className="space-y-5">

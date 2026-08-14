@@ -3,6 +3,7 @@
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
+import { useRouter } from "next/navigation";
 
 interface HistoryRecord {
   day: string;
@@ -15,7 +16,7 @@ interface HistoryRecord {
 
 export default function HistoryPage() {
   const { t } = useLanguage();
-
+  const router = useRouter();
   const historyRecords: HistoryRecord[] = [
     {
       day: t.wed,
@@ -76,6 +77,7 @@ export default function HistoryPage() {
           <div
             key={index}
             className="bg-[#FAF7F2] border border-[#E4DCD0] p-4 rounded-3xl flex items-center justify-between shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:border-[#CCC2B2] transition-colors cursor-pointer"
+            onClick={() => router.push(`/history/${index + 1}`)}
           >
             <div className="flex items-center gap-3.5">
               {/* Date Box */}
@@ -121,4 +123,4 @@ export default function HistoryPage() {
       <BottomNav />
     </div>
   );
-}
+} 

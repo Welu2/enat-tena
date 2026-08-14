@@ -25,9 +25,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -40,11 +37,10 @@ export default function RootLayout({
       lang="am"
       className={`${notoSansEthiopic.variable} ${plusJakartaSans.variable}`}
     >
-      <body className="font-sans antialiased bg-[#141210] text-brand-text min-h-dvh flex items-center justify-center p-0 md:p-6 lg:p-10 selection:bg-brand-green/20">
-        {/* Responsive Mobile Container: Full-screen on mobile, elevated card on desktop */}
-        <div className="w-full min-h-dvh md:min-h-[844px] md:max-h-[920px] md:max-w-[420px] bg-brand-cream flex flex-col relative overflow-y-auto overflow-x-hidden md:rounded-[40px] md:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] md:border md:border-white/10">
-          <LanguageProvider>{children}</LanguageProvider>
-        </div>
+      <body className="font-sans antialiased bg-brand-cream text-brand-text min-h-dvh w-full flex flex-col selection:bg-brand-green/20">
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );
