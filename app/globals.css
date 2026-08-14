@@ -1,26 +1,148 @@
 @import "tailwindcss";
 
+@theme {
+  /* Fonts mapped to next/font CSS variables */
+  --font-sans: var(--font-ethiopic), var(--font-latin), system-ui, sans-serif;
+  --font-latin: var(--font-latin), system-ui, sans-serif;
+
+  /* Custom Enat Tena Brand Palette */
+  --color-brand-green: #355e4c;
+  --color-brand-green-hover: #2b4d3e;
+  --color-brand-cream: #ede7dc;
+  --color-brand-cream-light: #f6f2eb;
+  --color-brand-card: #efebe2;
+  --color-brand-input: #faf7f2;
+  --color-brand-text: #221f1b;
+  --color-brand-subtle: #7e7569;
+
+  /* Custom Border Radius */
+  --radius-3xl: 1.75rem;
+  --radius-4xl: 2.25rem;
+
+  /* Custom Animations */
+  --animate-fadeIn: fadeIn 0.3s ease-out;
+  --animate-slideUp: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slideDown: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-shake: shake 0.4s ease-in-out;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: #221f1b;
+  --background: #1c1815;
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--background);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-4px);
+  }
+  30% {
+    transform: translateX(4px);
+  }
+  45% {
+    transform: translateX(-3px);
+  }
+  60% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-1px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   Scrollbar Styling (for the mobile container)
+   ========================================================================== */
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #d5cdbd;
+  border-radius: 99px;
+}
+
+/* ==========================================================================
+   Focus-visible ring for keyboard navigation
+   ========================================================================== */
+
+*:focus-visible {
+  outline: 2px solid #355e4c;
+  outline-offset: 2px;
+  border-radius: 4px;
 }

@@ -1,0 +1,356 @@
+export type Language = "am" | "en";
+
+export const translations = {
+    am: {
+        appName: "እናት ጤና",
+        appSub: "ENAT TENA",
+        heroTitle: "ለጤናማ እርግዝና ወቅትዎ",
+        heroDescription: "በድምፅዎ ዕለታዊ ቼክ-ኢን ያድርጉ — ፈጣን፣ ቀላል፣ ደህንነቱ የተጠበቀ::",
+        getStarted: "ይጀምሩ",
+        logIn: "ግባ",
+        welcomeBack: "ወደ አካውንትዎ ይግቡ",
+        welcomeSubtitle: "ስልክ ቁጥርዎ እና የይለፍ ቃል ያስፈልጋል",
+        createAccount: "አካውንት ይፍጠሩ",
+        createSubtitle: "ነፃ ነው — ጥቂት ደቂቃ ይወስዳል",
+        fullName: "ሙሉ ስም",
+        fullNamePlaceholder: "ሳራ ተካ / Sara Teka",
+        phoneNumber: "የስልክ ቁጥር",
+        phoneNumberPlaceholder: "0912 345 678",
+        password: "የይለፍ ቃል",
+        forgotPassword: "የይለፍ ቃልን ረሱ",
+        noAccount: "አካውንት የለዎትም?",
+        haveAccount: "አካውንት አለዎት?",
+        signUp: "ይመዝገቡ",
+        continue: "ቀጥል",
+        back: "ተመለስ",
+        partnerFooter: "በኢትዮጵያ ፌደራል ጤና ሚኒስቴር ድጋፍ",
+        // --- Onboarding Step 1: Supplements ---
+    step1Of3: "ደረጃ 1 ከ 3",
+    supplementsTitle: "ተጨማሪ ንጥረ ነገሮች",
+    supplementsQuestion: "በአሁኑ ጊዜ ተጨማሪ ንጥረ ነገሮችን/መድኃኒቶችን እየወሰዱ ነው?",
+    yes: "አዎ",
+    no: "አይደለም",
+    whichSupplements: "የትኞቹን እየወሰዱ ነው?",
+    iron: "አይረን (Iron)",
+    folicAcid: "ፎሊክ አሲድ (Folic Acid)",
+    calcium: "ካልሲየም (Calcium)",
+    vitaminD: "ቫይታሚን ዲ (Vitamin D)",
+    otherSupplementPlaceholder: "ሌላ ተጨማሪ ንጥረ ነገር...",
+
+    // --- Onboarding Step 2: Next Appointment ---
+    step2Of3: "ደረጃ 2 ከ 3",
+    appointmentTitle: "ቀጣይ ቀጠሮ",
+    appointmentQuestion: "የቀጣይ የቅድመ ወሊድ ክትትል (ANC) ቀጠሮ ቀን አለዎት?",
+    notNow: "አሁን አይደለም",
+    appointmentDateLabel: "የቀጠሮ ቀን",
+    appointmentHint: "ይህንን በማንኛውም ጊዜ በቅንብሮች ውስጥ መቀየር ይችላሉ::",
+
+    // --- Onboarding Step 3: Microphone ---
+    step3Of3: "ደረጃ 3 ከ 3",
+    micTitle: "ማይክሮፎን",
+    micDescription:
+      "ቀጥተኛ ቼክ-ኢን ለማድረግ ማይክሮፎን ያስፈልጋል:: ድምፅ አይቀዳም — ጽሁፍ ብቻ ይቀርባል::",
+    allowMic: "ማይክሮፎን ፍቀድ",
+    skipForNow: "ዝለል",
+    micDeniedTitle: "ፍቃድ ተከልክሏል",
+    micDeniedGuide: "ቅንብሮች → Safari/Chrome → ማይክሮፎን ፍቃድ ይስጡ",
+    
+    confirmAll: "ሁሉንም አረጋግጥ",
+    reRecord: "እንደገና ቅረጽ",
+    skipNothing: "ዝለል",
+    toggleDangerDemo: "የአደጋ ሁኔታ ማሳያ (Demo)",
+    
+    // Forgot Password
+   
+    signInToContinue: "ለመቀጠል ይግቡ",
+    
+    sendResetCode: "የማረጋገጫ ኮድ ላክ",
+
+    // Dashboard Home
+    greeting: "ሰላም፣",
+    defaultUserName: "ሳራ",
+    startTodayCheckin: "የዛሬውን ቼክ-ኢን ይጀምሩ",
+    checkinSub: "ጥቂት ደቂቃዎችን ብቻ ይወስዳል",
+    nextAppt: "ቀጣይ ቀጠሮ",
+    daysAway: "ቀናት ቀርተዋል",
+    takenToday: "ዛሬ ወስደዋል?",
+    markDone: "ተወስዷል",
+    done: "ተጠናቋል",
+    recentCheckins: "የቅርብ ጊዜ ቼክ-ኢኖች",
+    viewAll: "ሁሉንም ይመልከቱ",
+    swelling: "እብጠት",
+    noSymptoms: "ምንም ምልክት የለም",
+    mildHeadache: "ቀለል ያለ ራስ ምታት",
+    supplementTaken: "ተጨማሪ ንጥረ ነገር ተወስዷል",
+    noSupplement: "ተጨማሪ ንጥረ ነገር አልተወሰደም",
+
+    // Check-in Questions
+    symptomsCat: "ምልክቶች",
+    symptomsQuestion: "ዛሬ ምን ዓይነት የጤና ምልክት ተሰምቶዎታል?",
+    foodCat: "ምግብ",
+    foodQuestion: "ዛሬ ምን ተመገቡ?",
+    supplementsCat: "ተጨማሪ ንጥረ ነገሮች",
+    supplementsCheckinQuestion: "ዛሬ ተጨማሪ ንጥረ ነገርዎን ወስደዋል?",
+    moodCat: "አጠቃላይ",
+    moodQuestion: "በአጠቃላይ ዛሬ ቀንዎ እንዴት ነበር?",
+    
+    // Voice Status
+    tapToSpeak: "ለመናገር ይጫኑ",
+    listening: "እያዳመጠ ነው...",
+    audioNeverStored: "ድምፅ አይቀመጥም",
+    whatWasUnderstood: "የተረዳው",
+    confirmOrEdit: "እያንዳንዱን ያረጋግጡ ወይም ያርሙ",
+    forTwoDays: "ለ 2 ቀናት",
+    mildFatigue: "ቀለል ያለ ድካም",
+
+    // Bottom Navigation
+    navHome: "ዋና ገጽ",
+    navHistory: "ታሪክ",
+    navReport: "ሪፖርት",
+    navSettings: "ቅንብሮች",
+
+    otherCat: "ሌላ",
+    otherQuestion: "የሚጠቅሱት ሌላ ተጨማሪ ነገር አለ?",
+    feelingGood: "ዛሬ ፅናቴ ጥሩ ነው — Feeling good today",
+    cancel: "ሰርዝ",
+
+
+    // History Page
+    historyTitle: "የቼክ-ኢን ታሪክ",
+    historySub: "5 ቀናት ተመዝግበዋል",
+    supplementBadge: "ተጨማሪ ✓",
+    wed: "ረቡዕ",
+    tue: "ማክሰ",
+    mon: "ሰኞ",
+    sun: "እሑድ",
+    sat: "ቅዳሜ",
+    aug: "ነሐሴ",
+    share: "አጋራ",
+
+    // Report Page
+    clinicianReport: "የህክምና ባለሙያ ሪፖርት",
+    healthSummary: "የጤና ማጠቃለያ",
+    patientLabel: "ታካሚ",
+    patientName: "ሳራ ተካ",
+    periodLabel: "የጊዜ ገደብ",
+    periodValue: "ነሐሴ 8 – ነሐሴ 14",
+    dangerSignsTitle: "የአደጋ ምልክቶች",
+    dangerSignsNone: "ምንም አልተዘገበም",
+    supplementAdherence: "የተጨማሪ ንጥረ ነገር አወሳሰድ",
+    supplementTypes: "ብረት, ፎሊክ አሲድ",
+    adherenceRatio: "4/5 ቀናት",
+    selfReported: "በራስ የተዘገበ",
+    symptomsLog: "የምልክቶች መዝገብ",
+ 
+    fatigueFaceSwelling: "ድካም፣ የፊት እብጠት",
+    noSymptomsDays: "2 ቀን(ናት) — ምንም ምልክት የለም",
+    foodLog: "የምግብ መዝገብ",
+    disclaimerNote:
+      "ማስታወሻ: ሁሉም መረጃዎች በታካሚዋ በድምፅ ቼክ-ኢን የተመዘገቡ ናቸው:: ይህ ሪፖርት የማጣቀሻ ድጋፍ እንጂ ክሊኒካዊ ምርመራ አይደለም::",
+    generatedDate: "የተዘጋጀበት: ነሐሴ 14, 2026",
+    nextAppointmentBanner: "ቀጣይ ቀጠሮ: ዓርብ፣ ጳጉሜ 4, 2026",
+
+    // Settings Page
+  
+    supplementsSection: "ተጨማሪ ንጥረ ነገሮች",
+    ironLabel: "ብረት / Iron",
+    folicAcidLabel: "ፎሊክ አሲድ / Folic Acid",
+    addNewSupplement: "አዲስ ተጨማሪ ንጥረ ነገር ጨምር...",
+    supplementReminderSection: "የተጨማሪ ንጥረ ነገር ማስታወሻ",
+    dailyReminder: "ዕለታዊ ማስታወሻ",
+    dailyReminderSub: "ተጨማሪ ንጥረ ነገርዎን እንዲወስዱ ያስታውሰዎታል",
+    timeLabel: "ሰዓት",
+    appointmentSection: "ቀጠሮ",
+  
+    appointmentDateValue: "ጳጉሜ 4, 2026",
+    notificationsSection: "ማሳወቂያዎች",
+    dailyCheckinReminder: "ዕለታዊ የቼክ-ኢን ማስታወሻ",
+    appointmentApproaching: "ቀጠሮ ሲቃረብ አሳውቀኝ",
+    accountSection: "አካውንት",
+    editAppointment: "ቀጠሮ ይቀይሩ",
+    editSupplements: "ተጨማሪ ንጥረ ነገሮችን ይቀይሩ",
+    deleteAccount: "አካውንት ይሰርዙ",
+    dangerDemo: "የአደጋ ሁኔታ ማሳያ",
+    dangerDemoSub: "የአደጋ ምልክቶችን ይመልከቱ",
+    logOut: "ውጣ",
+    edit: "ቀይር",
+    
+
+
+},
+    en: {
+        appName: "እናት ጤና",
+        appSub: "ENAT TENA",
+        heroTitle: "For a healthier pregnancy",
+        heroDescription: "Daily voice check-ins in minutes — simple, private, and designed for you.",
+        getStarted: "Get Started",
+        logIn: "Log In",
+        welcomeBack: "Welcome back",
+        welcomeSubtitle: "Sign in to continue",
+        createAccount: "Create account",
+        createSubtitle: "Free — takes just a few minutes",
+        fullName: "Full name",
+        fullNamePlaceholder: "Sara Teka",
+        phoneNumber: "Phone number",
+        phoneNumberPlaceholder: "0912 345 678",
+        password: "Password",
+        forgotPassword: "Forgot password?",
+        noAccount: "Don't have an account?",
+        haveAccount: "Already have an account?",
+        signUp: "Sign up",
+        continue: "Continue",
+        back: "Back",
+        partnerFooter: "Supported by the Ethiopian Federal Ministry of Health",
+    step1Of3: "STEP 1 OF 3",
+    supplementsTitle: "Supplements",
+    supplementsQuestion: "Are you currently taking any supplements?",
+    yes: "Yes",
+    no: "No",
+    whichSupplements: "Which ones are you taking?",
+    iron: "Iron",
+    folicAcid: "Folic Acid",
+    calcium: "Calcium",
+    vitaminD: "Vitamin D",
+    otherSupplementPlaceholder: "Other supplement...",
+
+    // --- Onboarding Step 2: Next Appointment ---
+    step2Of3: "STEP 2 OF 3",
+    appointmentTitle: "Next Appointment",
+    appointmentQuestion: "Do you have your next ANC appointment date?",
+    notNow: "Not now",
+    appointmentDateLabel: "Appointment date",
+    appointmentHint: "You can change this anytime in Settings.",
+
+    // --- Onboarding Step 3: Microphone ---
+    step3Of3: "STEP 3 OF 3",
+    micTitle: "Microphone",
+    micDescription:
+      "Microphone access is needed for voice check-ins. Audio is never recorded — only a text summary is kept.",
+    allowMic: "Allow Microphone",
+    skipForNow: "Skip for now",
+    micDeniedTitle: "Permission denied",
+    micDeniedGuide: "Settings → Safari/Chrome → Allow Microphone access",
+    
+// Forgot Password
+   
+    signInToContinue: "Sign in to continue",
+  
+
+    // Dashboard Home
+    greeting: "Hello,",
+    defaultUserName: "Sara",
+    startTodayCheckin: "Start today's check-in",
+    checkinSub: "Takes just a few minutes",
+    nextAppt: "Next appt.",
+    daysAway: "days away",
+    takenToday: "Taken today?",
+    markDone: "Mark done",
+    done: "Done",
+    recentCheckins: "Recent check-ins",
+    viewAll: "View all ›",
+    swelling: "Swelling",
+    noSymptoms: "No symptoms",
+    mildHeadache: "Mild headache",
+    supplementTaken: "Supplement taken",
+    noSupplement: "No supplement",
+
+    // Check-in Questions
+    symptomsCat: "SYMPTOMS",
+    symptomsQuestion: "What symptoms have you felt today?",
+    foodCat: "FOOD",
+    foodQuestion: "What did you eat today?",
+    supplementsCat: "SUPPLEMENTS",
+    supplementsCheckinQuestion: "Did you take your supplement today?",
+    moodCat: "OVERALL",
+    moodQuestion: "How are you feeling overall today?",
+
+    // Voice Status
+    tapToSpeak: "Tap to speak",
+    listening: "Listening...",
+    audioNeverStored: "Audio is never stored",
+    whatWasUnderstood: "What was understood",
+    confirmOrEdit: "Confirm or edit each item",
+    forTwoDays: "For 2 days",
+    mildFatigue: "Mild fatigue",
+
+    // Bottom Navigation
+    navHome: "Home",
+    navHistory: "History",
+    navReport: "Report",
+    navSettings: "Settings",
+
+    otherCat: "OTHER",
+    otherQuestion: "Is there anything else to mention?",
+    feelingGood: "Feeling good today",
+
+    cancel :"Cancel",
+    
+ // History Page
+    historyTitle: "Check-in History",
+    historySub: "5 days recorded",
+    supplementBadge: "Supplement ✓",
+    wed: "WED",
+    tue: "TUE",
+    mon: "MON",
+    sun: "SUN",
+    sat: "SAT",
+    aug: "AUG",
+
+    // Report Page
+    clinicianReport: "CLINICIAN REPORT",
+    healthSummary: "Health Summary",
+    patientLabel: "PATIENT",
+    patientName: "Sara Teka",
+    periodLabel: "PERIOD",
+    periodValue: "Aug 8 – Aug 14",
+    dangerSignsTitle: "Danger Signs",
+    dangerSignsNone: "None reported",
+    supplementAdherence: "Supplement Adherence",
+    supplementTypes: "Iron, Folic Acid",
+    adherenceRatio: "4/5 days",
+    selfReported: "Self-reported",
+    symptomsLog: "Symptoms Log",
+
+    fatigueFaceSwelling: "Fatigue, Face swelling",
+    noSymptomsDays: "2 day(s) — no symptoms",
+    foodLog: "Food Log",
+    disclaimerNote:
+      "Note: All data is self-reported by the patient via voice check-in. This report is a reference aid, not a clinical assessment.",
+    generatedDate: "Generated: August 14, 2026.",
+    nextAppointmentBanner: "Next appointment: Friday, September 4, 2026",
+
+    // Settings Page
+   
+    supplementsSection: "SUPPLEMENTS",
+    ironLabel: "ብረት / Iron",
+    folicAcidLabel: "ፎሊክ አሲድ / Folic Acid",
+    addNewSupplement: "Add new supplement...",
+    supplementReminderSection: "SUPPLEMENT REMINDER",
+    dailyReminder: "Daily reminder",
+    dailyReminderSub: "Reminds you to take your supplement",
+    timeLabel: "Time",
+    appointmentSection: "APPOINTMENT",
+   
+    appointmentDateValue: "September 4, 2026",
+    notificationsSection: "NOTIFICATIONS",
+    dailyCheckinReminder: "Daily check-in reminder",
+    appointmentApproaching: "Appointment approaching",
+    accountSection: "ACCOUNT",
+    editAppointment: "Edit appointment",
+    editSupplements: "Edit supplements",
+    deleteAccount: "Delete account",
+    dangerDemo: "Danger Demo",
+    dangerDemoSub: "View danger signs",
+    logOut: "Logout",
+    share: "Share",
+    edit: "Edit",
+    confirmAll: "Confirm All",
+    reRecord: "Re-Record",
+    skipNothing: "Skip Nothing",
+    toggleDangerDemo: "Toggle Danger Demo",
+    
+    sendResetCode: "Send Reset Code",
+    
+    
+    },
+};
