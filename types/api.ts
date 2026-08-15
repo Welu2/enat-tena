@@ -1,191 +1,189 @@
-// =============================================================================
-// Enat Tena — API Type Definitions (FastAPI/Pydantic-compatible)
-// =============================================================================
+// types/api.ts
 
-// ---------------------------------------------------------------------------
-// Generic API Wrappers
-// ---------------------------------------------------------------------------
-
-/** Standard FastAPI validation error shape (422) */
-export interface ValidationErrorDetail {
-  loc: (string | number)[];
-  msg: string;
-  type: string;
-}
-
-/** FastAPI 422 response body */
-export interface ValidationErrorResponse {
-  detail: ValidationErrorDetail[];
-}
-
-/** FastAPI generic error response */
-export interface ApiErrorResponse {
-  detail: string;
-}
-
-/** Custom error class for API errors */
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly data?: ApiErrorResponse | ValidationErrorResponse
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-/** Paginated list response wrapper */
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-  pages: number;
-}
-
-// ---------------------------------------------------------------------------
-// Auth
-// ---------------------------------------------------------------------------
-
-export interface LoginRequest {
-  phone_number: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  full_name: string;
-  phone_number: string;
-  password: string;
-}
-
-export interface ForgotPasswordRequest {
-  phone_number: string;
-}
-
-export interface AuthUser {
-  id: string;
-  phone_number: string;
-  full_name: string;
-}
+// =========================================================
+// 1. Authentication & Errors
+// =========================================================
 
 export interface AuthResponse {
   access_token: string;
   token_type: string;
-  user: AuthUser;
+  user_id: string;
+  email: string;
 }
 
-export interface ForgotPasswordResponse {
+export interface ApiErrorResponse {
+  detail?: string | { msg: string; loc?: (string | number)[]; type?: string }[];
+  message?: string;
+}
+
+// =========================================================
+// 2. User Profile & Settings (GET /users/me)
+// =========================================================
+
+export interface SupplementItem {
+  id: string;
+  user_id: string;
+  name: string;
+  active: boolean;
+  reminder_enabled: boolean;
+  reminder_time: string;
+  created_at: string;
+}
+
+export interface UserAppointment {
+  id: string;
+  user_id: string;
+  appointment_date: string;
+  reminder_lead_days: number;
+  last_summary_generated_at: string | null;
+}
+
+export interface ReminderNotification {
+  id: string;
+  user_id: string;
+  type: "supplement" | "appointment" | "report_generated";
   message: string;
+  due_at: string;
+  dismissed: boolean;
+  created_at: string;
 }
 
-// ---------------------------------------------------------------------------
-// Onboarding / User Profile
-// ---------------------------------------------------------------------------
-
-export interface OnboardingPayload {
-  taking_supplements: boolean;
-  supplements: string[];
-  appointment_date: string | null;
-  mic_permission_granted: boolean;
-}
 
 export interface UserProfile {
   id: string;
-  full_name: string;
-  phone_number: string;
-  taking_supplements: boolean;
-  supplements: string[];
-  next_appointment_date: string | null;
-  mic_permission_granted: boolean;
-  onboarding_completed: boolean;
-  created_at: string;
+  email: string;
+  full_name?: string;
+  phone_number?: string;
+  next_appointment_date?: string | null;
+  created_at?: string;
+  supplements?: Array<any>;
+  appointment?: UserAppointment | null;
+  pending_reminders?: Array<any>;
 }
 
-// ---------------------------------------------------------------------------
-// Check-in
-// ---------------------------------------------------------------------------
 
-export interface CheckinSymptom {
-  name: string;
-  duration?: string;
+// =========================================================
+// 3. Voice Check-in Intake Workflow
+// =========================================================
+
+export type CheckinStage = "symptoms" | "food" | "supplement" | "closing";
+
+export interface CheckinStartResponse {
+  session_id: string;
+  stage: CheckinStage;
+  question_prompt: string;
 }
 
-export interface CheckinFood {
-  name: string;
-  details?: string;
+export interface PendingItem {
+  item_id: string;
+  raw_text: string;
+  category: string | null;
+  duration?: { value: number | null; unit: string };
+  severity: "mild" | "moderate" | "severe" | string;
+  danger_sign: boolean;
+  confirmed: boolean;
+  verification_phrase: string;
 }
 
-export interface CheckinSubmission {
-  symptoms: CheckinSymptom[];
-  foods: CheckinFood[];
-  supplement_taken: boolean;
-  supplement_names?: string[];
-  overall_feeling: string;
-  notes?: string;
+export interface CheckinRespondResponse {
+  session_id: string;
+  stage: CheckinStage | string;
+  transcript: string;
+  pending_items: PendingItem[];
 }
 
-export interface CheckinRecord {
+export interface CompleteStageResponse {
+  session_id: string;
+  stage_completed: string;
+  next_stage: CheckinStage | null;
+  question_prompt: string | null;
+  session_completed: boolean;
+  danger_sign_triggered: boolean;
+  check_in_id?: string;
+}
+
+// =========================================================
+// 4. Check-in History (GET /checkin/history)
+// =========================================================
+
+export interface CheckinHistoryItem {
   id: string;
-  date: string;
-  symptoms: CheckinSymptom[];
-  foods: CheckinFood[];
-  supplement_taken: boolean;
-  supplement_names: string[];
-  overall_feeling: string;
-  notes?: string;
-  created_at: string;
+  timestamp: string;
+  symptoms: Array<{
+    raw_text: string;
+    danger_sign: boolean;
+    confirmed: boolean;
+    severity?: string;
+  }>;
+  food_log: {
+    raw_text: string;
+    confirmed: boolean;
+  } | null;
+  supplement_check: {
+    supplement_name: string;
+    taken_today: boolean;
+    confirmed: boolean;
+  } | null;
+  closing_mentions?: string[];
+  danger_sign_triggered: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Health Report
-// ---------------------------------------------------------------------------
+// =========================================================
+// 5. Clinician Summaries & Reports
+// =========================================================
 
-export interface SymptomLogEntry {
-  date: string;
-  symptom: string;
+export interface ClinicianSummaryContent {
+  danger_signs: Array<
+    | {
+        raw_text?: string;
+        category?: string;
+        severity?: string;
+        date?: string;
+      }
+    | string
+  >;
+  symptoms_summary: Array<{
+    date?: string;
+    symptom?: string;
+    raw_text?: string;
+    severity?: string;
+  }>;
+  food_logs: Array<{
+    date?: string;
+    raw_text: string;
+  }>;
+  supplement_adherence: {
+    taken_days: number;
+    total_reported: number;
+    percentage: number;
+  };
+  patient_questions?: Array<{
+    question?: string;
+    raw_text?: string;
+  }>;
 }
 
-export interface FoodLogEntry {
-  date: string;
-  food: string;
-}
-
-export interface SupplementAdherence {
-  types: string[];
-  days_taken: number;
-  total_days: number;
-  ratio: string;
-}
-
-export interface HealthReport {
-  patient_name: string;
+export interface ClinicianSummary {
+  id: string;
   period_start: string;
   period_end: string;
-  danger_signs_detected: boolean;
-  danger_signs: string[];
-  supplement_adherence: SupplementAdherence;
-  symptoms_log: SymptomLogEntry[];
-  food_log: FoodLogEntry[];
-  no_symptoms_days: number;
   generated_at: string;
-  next_appointment: string | null;
+  content_json: ClinicianSummaryContent;
+  share_link_slug: string;
+  qr_code_url?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Settings
-// ---------------------------------------------------------------------------
-
-export interface SupplementItem {
-  id: number;
-  name: string;
+export interface CalendarLinkResponse {
+  google_calendar_url: string;
+  ical_download_url: string;
 }
 
-export interface UserSettings {
-  supplements: SupplementItem[];
-  reminder_time: string;
-  appointment_date: string;
-  daily_reminder_enabled: boolean;
-  checkin_reminder_enabled: boolean;
-  appointment_reminder_enabled: boolean;
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: "supplement" | "appointment" | "report_generated";
+  message: string;
+  due_at: string;
+  dismissed: boolean;
+  created_at: string;
 }

@@ -196,8 +196,11 @@ export const translations = {
     appointments: "ቀጠሮ",
     help: "እርዳታ",
     menu: "ምናሌ",
+    forgotPasswordTitle: "የይለፍ ቃልን ረሱ",
+    forgotPasswordSub: "የስልክ ቁጥርዎ እና የይለፍ ቃል ያስፈልጋል",
+    emailLabel: "ኢሜይል",
     
-
+      
 
 },
     en: {
@@ -394,5 +397,10 @@ export const translations = {
     appointments: "Appointments",
     help: "Help & Support",
     menu: "Menu",
+    forgotPasswordTitle: "Forgot Password",
+    forgotPasswordSub: "Forgot your password?",
+    emailLabel: "Email",
+    
+    
     }   
 };

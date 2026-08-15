@@ -6,13 +6,18 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
 import { LogoBadge } from "@/components/LogoBadge";
-import { registerWithFastAPI } from "@/lib/api";
-import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { signupWithFastAPI } from "@/lib/api";
+import { Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 interface FormErrors {
   fullName?: string;
-  phoneNumber?: string;
+  email?: string;
   password?: string;
+}
+
+interface ToastNotification {
+  type: "success" | "error";
+  message: string;
 }
 
 export default function SignupPage() {
@@ -20,21 +25,24 @@ export default function SignupPage() {
   const { lang, t } = useLanguage();
 
   const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSlowResponse, setIsSlowResponse] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [toast, setToast] = useState<ToastNotification | null>(null);
 
   // =========================================================
   // Validation Logic
   // =========================================================
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     // 1. Full Name Validation
-    const trimmedName = fullName.trim();
     if (!trimmedName) {
       newErrors.fullName =
         lang === "am" ? "እባክዎ ሙሉ ስምዎን ያስገቡ" : "Full name is required";
@@ -45,18 +53,15 @@ export default function SignupPage() {
           : "Full name must be at least 2 characters";
     }
 
-    // 2. Ethiopian Phone Number Validation (09/07 or +2519/+2517 followed by 8 digits)
-    const cleanedPhone = phoneNumber.replace(/\s+/g, "");
-    const ethPhoneRegex = /^(\+251[79]\d{8}|0[79]\d{8}|[79]\d{8})$/;
-
-    if (!cleanedPhone) {
-      newErrors.phoneNumber =
-        lang === "am" ? "እባክዎ ስልክ ቁጥርዎን ያስገቡ" : "Phone number is required";
-    } else if (!ethPhoneRegex.test(cleanedPhone)) {
-      newErrors.phoneNumber =
+    // 2. Email Validation
+    if (!trimmedEmail) {
+      newErrors.email =
+        lang === "am" ? "እባክዎ ኢሜይልዎን ያስገቡ" : "Email address is required";
+    } else if (!emailRegex.test(trimmedEmail)) {
+      newErrors.email =
         lang === "am"
-          ? "እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ (ለምሳሌ 0912345678)"
-          : "Enter a valid phone number (e.g., 0912345678 or +251912345678)";
+          ? "እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (ለምሳሌ sara@example.com)"
+          : "Please enter a valid email address (e.g. sara@example.com)";
     }
 
     // 3. Password Validation
@@ -76,43 +81,93 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
+    setToast(null);
 
-    // Stop submission if form validation fails
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setIsSlowResponse(false);
+
+    // If Render cold start takes longer than 4 seconds, update button text
+    const slowTimer = setTimeout(() => {
+      setIsSlowResponse(true);
+    }, 4000);
 
     try {
-      // Backend integration
-      // const data = await registerWithFastAPI(fullName.trim(), phoneNumber.trim(), password);
-      // localStorage.setItem("access_token", data.access_token);
+      // Connect to FastAPI Backend (POST /auth/signup)
+      const data = await signupWithFastAPI(email.trim().toLowerCase(), password);
 
-      alert(lang === "am" ? "አካውንትዎ በተሳካ ሁኔታ ተፈጥሯል!" : "Account created!");
-      router.push("/onboarding");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage(
+      // Store auth credentials and local display name
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("user_id", data.user_id);
+      localStorage.setItem("user_name", fullName.trim());
+
+      setToast({
+        type: "success",
+        message:
           lang === "am"
-            ? "ምዝገባው አልተሳካም። እባክዎ እንደገና ይሞክሩ።"
-            : "Registration failed. Please try again."
-        );
+            ? "አካውንትዎ በተሳካ ሁኔታ ተፈጥሯል! በማዘጋጀት ላይ..."
+            : "Account created successfully! Preparing onboarding...",
+      });
+
+      // Brief delay for the toast before routing
+      setTimeout(() => {
+        router.push("/onboarding");
+      }, 700);
+    } catch (err: unknown) {
+      const errorText = err instanceof Error ? err.message : "";
+      
+      let userFriendlyMsg =
+        lang === "am"
+          ? "ምዝገባው አልተሳካም። እባክዎ መረጃዎን እንደገና ያረጋግጡ።"
+          : "Registration failed. Please verify your information and try again.";
+
+      if (errorText.toLowerCase().includes("already registered") || errorText.toLowerCase().includes("exists")) {
+        userFriendlyMsg =
+          lang === "am"
+            ? "ይህ ኢሜይል አስቀድሞ ተመዝግቧል። እባክዎ ይግቡ።"
+            : "This email is already registered. Please log in.";
       }
+
+      setToast({
+        type: "error",
+        message: userFriendlyMsg,
+      });
     } finally {
+      clearTimeout(slowTimer);
       setIsLoading(false);
+      setIsSlowResponse(false);
     }
   };
 
   return (
     <main className="min-h-dvh w-full flex flex-col justify-between p-6 sm:p-8 lg:p-10 relative select-none">
-      {/* Top Header / Language Switcher */}
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-in slide-in-from-top-4 duration-300">
+          <div
+            className={`p-4 rounded-2xl border shadow-lg flex items-center gap-3 backdrop-blur-md ${
+              toast.type === "success"
+                ? "bg-[#F0F7F3]/95 border-[#C8E1D3] text-brand-green"
+                : "bg-[#FDF2F2]/95 border-[#F5C6C6] text-red-700"
+            }`}
+          >
+            {toast.type === "success" ? (
+              <CheckCircle2 size={18} className="flex-shrink-0 text-brand-green" />
+            ) : (
+              <AlertCircle size={18} className="flex-shrink-0 text-red-600" />
+            )}
+            <p className="text-xs font-semibold leading-snug">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="w-full max-w-md mx-auto flex justify-end">
         <Header />
       </div>
 
-      {/* Main Form Container */}
+      {/* Main Card */}
       <div className="w-full max-w-md mx-auto my-auto py-6 sm:py-8 sm:px-8 sm:bg-brand-card sm:rounded-3xl sm:shadow-xs sm:border sm:border-[#E4DCD0]/60">
         <div className="flex items-center gap-3.5 mb-6">
           <LogoBadge size="md" />
@@ -126,16 +181,8 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* Global Server Error Banner */}
-        {errorMessage && (
-          <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl flex items-center gap-2">
-            <AlertCircle size={16} className="flex-shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {/* Full Name Field */}
+          {/* Full Name */}
           <div className="space-y-1.5">
             <label className="block text-xs sm:text-sm font-bold text-brand-text">
               {t.fullName}
@@ -143,6 +190,7 @@ export default function SignupPage() {
             <input
               type="text"
               value={fullName}
+              disabled={isLoading}
               onChange={(e) => {
                 setFullName(e.target.value);
                 if (errors.fullName) {
@@ -163,35 +211,36 @@ export default function SignupPage() {
             )}
           </div>
 
-          {/* Phone Number Field */}
+          {/* Email */}
           <div className="space-y-1.5">
             <label className="block text-xs sm:text-sm font-bold text-brand-text">
-              {t.phoneNumber}
+              {lang === "am" ? "ኢሜይል" : "Email"}
             </label>
             <input
-              type="tel"
-              value={phoneNumber}
+              type="email"
+              value={email}
+              disabled={isLoading}
               onChange={(e) => {
-                setPhoneNumber(e.target.value);
-                if (errors.phoneNumber) {
-                  setErrors((prev) => ({ ...prev, phoneNumber: undefined }));
+                setEmail(e.target.value);
+                if (errors.email) {
+                  setErrors((prev) => ({ ...prev, email: undefined }));
                 }
               }}
-              placeholder={t.phoneNumberPlaceholder ?? "0912 345 678"}
+              placeholder="sara@example.com"
               className={`w-full min-h-[48px] px-4 py-3 sm:py-3.5 rounded-2xl bg-brand-input border text-brand-text placeholder-[#A3998C] text-sm focus:outline-none transition-all ${
-                errors.phoneNumber
+                errors.email
                   ? "border-red-400 bg-red-50/30 focus:ring-2 focus:ring-red-400"
                   : "border-[#E4DCD0] focus:ring-2 focus:ring-brand-green"
               }`}
             />
-            {errors.phoneNumber && (
+            {errors.email && (
               <p className="text-[11px] font-medium text-red-600 pl-1 flex items-center gap-1">
-                <span>•</span> {errors.phoneNumber}
+                <span>•</span> {errors.email}
               </p>
             )}
           </div>
 
-          {/* Password Field */}
+          {/* Password */}
           <div className="space-y-1.5">
             <label className="block text-xs sm:text-sm font-bold text-brand-text">
               {t.password}
@@ -200,6 +249,7 @@ export default function SignupPage() {
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
+                disabled={isLoading}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (errors.password) {
@@ -229,18 +279,33 @@ export default function SignupPage() {
             )}
           </div>
 
-          {/* Submit Button */}
+          {/* Submit Button with Live Server Wake-up Notice */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full min-h-[50px] mt-2 py-3.5 sm:py-4 rounded-2xl bg-brand-green hover:bg-brand-green-hover text-white font-semibold text-sm sm:text-base shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full min-h-[50px] mt-2 py-3.5 sm:py-4 rounded-2xl bg-brand-green hover:bg-brand-green-hover text-white font-semibold text-sm sm:text-base shadow-xs active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
           >
-            {isLoading ? "..." : t.continue}
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>
+                  {isSlowResponse
+                    ? lang === "am"
+                      ? "አገልጋዩን በማገናኘት ላይ..."
+                      : "Waking up server..."
+                    : lang === "am"
+                    ? "በማስኬድ ላይ..."
+                    : "Processing..."}
+                </span>
+              </>
+            ) : (
+              t.continue
+            )}
           </button>
         </form>
       </div>
 
-      {/* Bottom Redirect */}
+      {/* Bottom Login Link */}
       <div className="w-full max-w-md mx-auto text-center text-xs sm:text-sm text-brand-subtle py-4">
         {t.haveAccount}{" "}
         <Link href="/login" className="text-brand-green font-bold hover:underline ml-1">
