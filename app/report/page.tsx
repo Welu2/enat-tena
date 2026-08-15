@@ -71,7 +71,7 @@ export default function ReportPage() {
   const { t, lang } = useLanguage();
 
   const [summary, setSummary] = useState<ClinicianSummary | null>(null);
-  const [patientName, setPatientName] = useState<string>("ሳራ ተካ");
+  const [patientName, setPatientName] = useState<string>("");
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -97,13 +97,16 @@ export default function ReportPage() {
     return data.content_json as ReportContent;
   };
 
-  // 1. Fetch Backend Data: User Profile (Appointment Date) + Latest Summary
+  // 1. Fetch Backend Data: User Profile (Dynamic Name & Appointment Date) + Latest Summary
   const initReportData = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
 
+    const cachedName = typeof window !== "undefined" ? localStorage.getItem("user_name") : null;
+    const cachedEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
+
     try {
-      // Step A: Fetch profile from backend for live appointment date and name
+      // Step A: Fetch profile from backend for live appointment date and resolved name
       try {
         const profile = await getUserProfile();
         if (profile) {
@@ -113,8 +116,30 @@ export default function ReportPage() {
             setAppointmentDate(profile.next_appointment_date);
           }
 
-          if (profile.full_name) {
-            setPatientName(profile.full_name);
+          // Dynamic Name Resolution Hierarchy:
+          // 1. profile.full_name
+          // 2. localStorage user_name
+          // 3. profile.email prefix
+          // 4. localStorage user_email prefix
+          // 5. Fallback: "ያልታወቀ" / "Unknown"
+          let resolvedName = "";
+          if (profile.full_name && profile.full_name.trim() !== "") {
+            resolvedName = profile.full_name.trim();
+          } else if (cachedName && cachedName.trim() !== "") {
+            resolvedName = cachedName.trim();
+          } else if (profile.email && profile.email.includes("@")) {
+            const prefix = profile.email.split("@")[0];
+            resolvedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+          } else if (cachedEmail && cachedEmail.includes("@")) {
+            const prefix = cachedEmail.split("@")[0];
+            resolvedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+          } else {
+            resolvedName = lang === "am" ? "ያልታወቀ" : "Unknown";
+          }
+
+          setPatientName(resolvedName);
+          if (resolvedName && resolvedName !== "ያልታወቀ" && resolvedName !== "Unknown") {
+            localStorage.setItem("user_name", resolvedName);
           }
         }
       } catch (profileErr) {
@@ -141,13 +166,22 @@ export default function ReportPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [lang, router]);
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (!token) {
       router.replace("/login");
       return;
+    }
+
+    const cachedName = localStorage.getItem("user_name");
+    const cachedEmail = localStorage.getItem("user_email");
+    if (cachedName && cachedName.trim()) {
+      setPatientName(cachedName.trim());
+    } else if (cachedEmail && cachedEmail.includes("@")) {
+      const prefix = cachedEmail.split("@")[0];
+      setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
     }
 
     initReportData();
@@ -196,11 +230,13 @@ export default function ReportPage() {
     const publicUrl = getPublicDoctorUrl();
     if (!publicUrl) return;
 
+    const displayName = patientName || (lang === "am" ? "ያልታወቀ" : "Unknown");
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: "EnatAI Clinician Summary Report",
-          text: `Antenatal Care Health Summary for ${patientName}`,
+          text: `Antenatal Care Health Summary for ${displayName}`,
           url: publicUrl,
         });
       } catch {
@@ -248,6 +284,7 @@ export default function ReportPage() {
   const adherencePercent = adherence ? Math.round(adherence.percentage) : 0;
   const muacReminder = content?.muac_reminder;
   const provenanceNote = content?.provenance_note;
+  const displayName = patientName || (lang === "am" ? "ያልታወቀ" : "Unknown");
 
   return (
     <div className="flex-1 flex flex-col justify-between min-h-dvh pb-20 md:pb-8 select-none font-sans">
@@ -316,7 +353,7 @@ export default function ReportPage() {
             <p className="text-[10px] font-bold text-white/65 uppercase tracking-wider">
               {t?.patientLabel || (lang === "am" ? "የእናቷ ስም" : "Patient")}
             </p>
-            <p className="text-sm font-bold text-white mt-0.5 truncate">{patientName}</p>
+            <p className="text-sm font-bold text-white mt-0.5 truncate">{displayName}</p>
           </div>
           <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm">
             <p className="text-[10px] font-bold text-white/65 uppercase tracking-wider">

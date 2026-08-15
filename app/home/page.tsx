@@ -15,50 +15,103 @@ export default function HomePage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
 
+  const fallbackName = lang === "am" ? "ያልታወቀ" : "Unknown";
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [userName, setUserName] = useState("ሳራ");
+  const [userName, setUserName] = useState<string>("");
   const [daysAway, setDaysAway] = useState<number | null>(null);
   const [supplementName, setSupplementName] = useState<string | null>(null);
   const [supplementTaken, setSupplementTaken] = useState(false);
   const [recentCheckins, setRecentCheckins] = useState<CheckinHistoryItem[]>([]);
 
-  // 1. Auth Guard & Initial Data Fetching
+  // Safe helper to extract and parse true timestamp from backend items
+  const parseRecordDate = (item: CheckinHistoryItem): Date => {
+    const raw = item.timestamp || (item as any).created_at || (item as any).date;
+    if (!raw) return new Date();
+    if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [y, m, d] = raw.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0);
+    }
+    const parsed = new Date(raw);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  // 1. Auth Guard & Initial Data Fetching from Backend
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (!token) {
       router.replace("/login");
       return;
     }
 
     const cachedName = localStorage.getItem("user_name");
-    if (cachedName) {
-      setUserName(cachedName);
+    const cachedEmail = localStorage.getItem("user_email");
+
+    // Initialize with cached info if present
+    if (cachedName && cachedName.trim()) {
+      setUserName(cachedName.trim());
+    } else if (cachedEmail && cachedEmail.includes("@")) {
+      const prefix = cachedEmail.split("@")[0];
+      setUserName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
     }
 
     async function loadDashboardData() {
       try {
-        // Fetch profile settings (Appointment, Supplements)
+        // Fetch user profile from backend
         const profile = await getUserProfile();
 
-        if (profile.appointment?.appointment_date) {
-          const apptDate = new Date(profile.appointment.appointment_date);
-          const todayDate = new Date();
-          apptDate.setHours(0, 0, 0, 0);
-          todayDate.setHours(0, 0, 0, 0);
-
-          const diffMs = apptDate.getTime() - todayDate.getTime();
-          const calculatedDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          setDaysAway(calculatedDays >= 0 ? calculatedDays : 0);
+        // 1. Multi-tier Name Resolution Hierarchy
+        let resolvedName = "";
+        if (profile?.full_name && profile.full_name.trim() !== "") {
+          resolvedName = profile.full_name.trim();
+        } else if (cachedName && cachedName.trim() !== "") {
+          resolvedName = cachedName.trim();
+        } else if (profile?.email && profile.email.includes("@")) {
+          const emailPrefix = profile.email.split("@")[0];
+          resolvedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        } else if (cachedEmail && cachedEmail.includes("@")) {
+          const emailPrefix = cachedEmail.split("@")[0];
+          resolvedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        } else {
+          resolvedName = fallbackName;
         }
 
-        const activeSupp = profile.supplements?.find((s) => s.active);
+        setUserName(resolvedName);
+        if (resolvedName && resolvedName !== fallbackName) {
+          localStorage.setItem("user_name", resolvedName);
+        }
+
+        // 2. Strict Appointment Days Calculation (Guards against hardcoded dates for new accounts)
+        const apptDateStr = profile?.appointment?.appointment_date || profile?.next_appointment_date;
+        if (apptDateStr && typeof apptDateStr === "string" && apptDateStr.trim() !== "") {
+          const apptDate = new Date(apptDateStr);
+          if (!isNaN(apptDate.getTime())) {
+            const todayDate = new Date();
+            apptDate.setHours(0, 0, 0, 0);
+            todayDate.setHours(0, 0, 0, 0);
+
+            const diffMs = apptDate.getTime() - todayDate.getTime();
+            const calculatedDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            setDaysAway(calculatedDays >= 0 ? calculatedDays : 0);
+          } else {
+            setDaysAway(null);
+          }
+        } else {
+          // Brand new user with no registered appointment
+          setDaysAway(null);
+        }
+
+        // 3. Resolve active supplement
+        const activeSupp = profile?.supplements?.find((s) => s.active);
         if (activeSupp) {
           setSupplementName(activeSupp.name);
         }
 
-        // Fetch recent check-ins
+        // 4. Fetch recent check-ins sorted by true date
         const history = await getCheckinHistory();
-        setRecentCheckins(history.slice(0, 3));
+        const sortedHistory = [...history].sort(
+          (a, b) => parseRecordDate(b).getTime() - parseRecordDate(a).getTime()
+        );
+        setRecentCheckins(sortedHistory.slice(0, 3));
       } catch (error) {
         console.error("Dashboard data load error:", error);
       } finally {
@@ -67,13 +120,13 @@ export default function HomePage() {
     }
 
     loadDashboardData();
-  }, [router]);
+  }, [router, fallbackName]);
 
   // Today's synced date
   const today = new Date();
   const formattedToday = formatSyncedDate(today, lang);
 
-  // Authentication loading screen (prevents unauthenticated UI flash)
+  // Authentication loading screen
   if (isLoadingAuth) {
     return (
       <div className="min-h-dvh w-full flex flex-col items-center justify-center bg-[#FAF7F2]">
@@ -85,8 +138,11 @@ export default function HomePage() {
     );
   }
 
+  const displayName = userName || fallbackName;
+  const avatarLetter = displayName.charAt(0).toUpperCase() || (lang === "am" ? "ያ" : "U");
+
   return (
-    <div className="flex-1 flex flex-col justify-between min-h-dvh pb-20 md:pb-8">
+    <div className="flex-1 flex flex-col justify-between min-h-dvh pb-20 md:pb-8 font-sans select-none">
       {/* Top Header */}
       <div className="relative pt-16 md:pt-16 px-6 sm:px-7">
         <Header />
@@ -98,11 +154,11 @@ export default function HomePage() {
               {formattedToday.full}
             </p>
             <h1 className="text-2xl font-extrabold text-brand-text">
-              {t.greeting} <span className="font-bold">{userName}</span>
+              {t.greeting} <span className="font-bold">{displayName}</span>
             </h1>
           </div>
           <div className="w-10 h-10 rounded-full bg-[#E0EBE6] text-brand-green font-bold flex items-center justify-center text-sm shadow-xs uppercase">
-            {userName.charAt(0) || (lang === "am" ? "ሳ" : "S")}
+            {avatarLetter}
           </div>
         </div>
       </div>
@@ -151,7 +207,9 @@ export default function HomePage() {
               <p className="text-2xl font-black text-brand-green leading-none mt-0.5">
                 {daysAway !== null ? daysAway : "--"}
               </p>
-              <p className="text-[11px] text-brand-subtle mt-0.5">{t.daysAway}</p>
+              <p className="text-[11px] text-brand-subtle mt-0.5">
+                {daysAway !== null ? t.daysAway : lang === "am" ? "ቀጠሮ አልተያዘም" : "Not set"}
+              </p>
             </div>
           </div>
 
@@ -196,7 +254,7 @@ export default function HomePage() {
           <div className="space-y-2">
             {recentCheckins.length > 0 ? (
               recentCheckins.map((item) => {
-                const itemDate = formatSyncedDate(new Date(item.timestamp), lang);
+                const itemDate = formatSyncedDate(parseRecordDate(item), lang);
                 const titleText =
                   item.symptoms && item.symptoms.length > 0
                     ? item.symptoms.map((s) => s.raw_text).join(", ")
@@ -210,10 +268,12 @@ export default function HomePage() {
                   ? "ተጨማሪ አልተወሰደም"
                   : "No supplement";
 
+                const checkinId = item.id || (item as any).check_in_id;
+
                 return (
                   <Link
-                    key={item.id}
-                    href={`/history/${item.id}`}
+                    key={checkinId}
+                    href={`/history/${checkinId}`}
                     className="bg-[#FAF7F2] border border-[#E4DCD0] p-3.5 rounded-2xl flex items-center justify-between hover:border-[#CCC2B2] hover:bg-[#F5F0E8] transition-all group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">

@@ -8,11 +8,13 @@ import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { getCheckinHistory } from "@/lib/api";
 import { formatSyncedDate } from "@/lib/dateUtils";
-import { Loader2, AlertTriangle, ArrowRight } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowRight, Calendar } from "lucide-react";
 
 interface CheckinHistoryItem {
   id: string;
-  timestamp: string;
+  timestamp?: string;
+  created_at?: string;
+  date?: string;
   symptoms: Array<{
     raw_text: string;
     danger_sign: boolean;
@@ -39,9 +41,31 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // 1. Auth Guard and API Fetch
+  // Robust date parser ensuring zero timezone shift or NaN issues
+  const parseRecordDate = (record: CheckinHistoryItem): Date => {
+    const raw = record.timestamp || record.created_at || record.date;
+    if (!raw) return new Date();
+
+    if (typeof raw === "string") {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [y, m, d] = raw.split("-").map(Number);
+        return new Date(y, m - 1, d, 12, 0, 0);
+      }
+      const parsed = new Date(raw);
+      return isNaN(parsed.getTime()) ? new Date() : parsed;
+    }
+
+    if (typeof raw === "number") {
+      const parsed = new Date(raw);
+      return isNaN(parsed.getTime()) ? new Date() : parsed;
+    }
+
+    return new Date();
+  };
+
+  // Auth Guard & API Fetch
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (!token) {
       router.replace("/login");
       return;
@@ -50,9 +74,10 @@ export default function HistoryPage() {
     async function loadHistory() {
       try {
         const data = await getCheckinHistory();
-        // Sort newest first by timestamp
+
+        // Sort newest first by true timestamp
         const sorted = [...data].sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          (a, b) => parseRecordDate(b).getTime() - parseRecordDate(a).getTime()
         );
         setRecords(sorted);
       } catch (err: unknown) {
@@ -71,7 +96,7 @@ export default function HistoryPage() {
   }, [router, lang]);
 
   return (
-    <div className="flex-1 flex flex-col justify-between min-h-dvh pb-20 md:pb-8 select-none">
+    <div className="flex-1 flex flex-col justify-between min-h-dvh pb-20 md:pb-8 select-none font-sans">
       {/* Top Header */}
       <div className="relative pt-16 px-6 sm:px-7">
         <Header />
@@ -102,14 +127,9 @@ export default function HistoryPage() {
 
         {/* Empty State */}
         {!isLoading && !fetchError && records.length === 0 && (
-          <div className="py-16 px-4 text-center space-y-4 bg-[#FAF7F2] border border-[#E4DCD0] rounded-3xl mt-4">
+          <div className="py-16 px-4 text-center space-y-4 bg-[#FAF7F2] border border-[#E4DCD0] rounded-3xl mt-4 shadow-xs">
             <div className="w-12 h-12 rounded-2xl bg-[#EBE5DA] flex items-center justify-center mx-auto text-brand-subtle">
-              <svg className="w-6 h-6 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
+              <Calendar size={22} className="text-[#8C7A6B]" />
             </div>
             <div>
               <h3 className="text-base font-bold text-brand-text">
@@ -123,7 +143,7 @@ export default function HistoryPage() {
             </div>
             <Link
               href="/checkin"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-brand-green text-white font-semibold text-xs shadow-xs hover:bg-brand-green-hover transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-brand-green text-white font-semibold text-xs shadow-xs hover:bg-brand-green-hover active:scale-95 transition-all cursor-pointer"
             >
               <span>{t.startTodayCheckin}</span>
               <ArrowRight size={14} />
@@ -134,8 +154,8 @@ export default function HistoryPage() {
         {/* Check-in Cards List */}
         {!isLoading &&
           !fetchError &&
-          records.map((record) => {
-            const dateObj = new Date(record.timestamp);
+          records.map((record, index) => {
+            const dateObj = parseRecordDate(record);
             const formatted = formatSyncedDate(dateObj, lang);
 
             // Extract primary symptom summary
@@ -152,22 +172,25 @@ export default function HistoryPage() {
             // Check for clinical danger signs
             const hasDangerSign =
               record.danger_sign_triggered ||
-              record.symptoms.some((s) => s.danger_sign);
+              record.symptoms?.some((s) => s.danger_sign);
 
-            // Fallback for backend ID field naming
-            const checkinId = record.id || (record as any).check_in_id;
+            // Fallback for backend ID variations
+            const checkinId =
+              record.id || (record as any).check_in_id || `checkin_${index}`;
 
             return (
               <div
                 key={checkinId}
                 onClick={() => router.push(`/history/${checkinId}`)}
                 className={`bg-[#FAF7F2] border p-4 rounded-3xl flex items-center justify-between shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:bg-[#F5F0E8] transition-all cursor-pointer ${
-                  hasDangerSign ? "border-red-300 bg-red-50/20" : "border-[#E4DCD0] hover:border-[#CCC2B2]"
+                  hasDangerSign
+                    ? "border-red-300 bg-red-50/20"
+                    : "border-[#E4DCD0] hover:border-[#CCC2B2]"
                 }`}
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   {/* Date Box */}
-                  <div className="w-12 h-14 rounded-2xl bg-[#EBE5DA] flex flex-col items-center justify-center text-center flex-shrink-0">
+                  <div className="w-12 h-14 rounded-2xl bg-[#EBE5DA] flex flex-col items-center justify-center text-center flex-shrink-0 shadow-inner">
                     <span className="text-[9px] uppercase font-bold text-brand-subtle tracking-wider leading-none">
                       {formatted.dayName?.slice(0, 3) || "---"}
                     </span>
