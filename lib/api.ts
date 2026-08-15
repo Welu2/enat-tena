@@ -27,8 +27,7 @@ export type {
   UserProfile,
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://enat-backend-2jlo.onrender.com";
-
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api-proxy";
 // =========================================================
 // Base API Client Helper
 // =========================================================

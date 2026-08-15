@@ -1,11 +1,10 @@
-// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/proxy/:path*",
-        destination: "http://127.0.0.1:8000/:path*",
+        source: "/api-proxy/:path*",
+        destination: "https://enat-backend-2jlo.onrender.com/:path*",
       },
     ];
   },

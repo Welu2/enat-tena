@@ -64,10 +64,18 @@ export default function SettingsPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // 1. Initial Load: Fetch Backend Profile + Restore Saved Preferences
+  // 1. Initial Load: Restore LocalStorage Preferences + Fetch Backend Profile
   const loadSettings = useCallback(async () => {
     try {
-      // Restore client-side notification toggle preferences
+      // 1A. Restore client-side saved preferences first
+      const savedTime = localStorage.getItem("reminder_time");
+      if (savedTime) setReminderTime(savedTime);
+
+      const savedDailyReminder = localStorage.getItem("pref_daily_reminder");
+      if (savedDailyReminder !== null) {
+        setDailyReminder(savedDailyReminder === "true");
+      }
+
       const savedCheckinPref = localStorage.getItem("pref_checkin_reminder");
       if (savedCheckinPref !== null) {
         setCheckinReminder(savedCheckinPref === "true");
@@ -78,6 +86,7 @@ export default function SettingsPage() {
         setApptApproaching(savedApptPref === "true");
       }
 
+      // 1B. Fetch profile from backend
       const profile = await getUserProfile();
 
       if (profile.email) setPatientEmail(profile.email);
@@ -91,14 +100,14 @@ export default function SettingsPage() {
             name: s,
             active: true,
             reminder_enabled: true,
-            reminder_time: "09:00:00",
+            reminder_time: savedTime || "08:00:00",
           };
         }
         return s;
       });
       setSupplements(suppList);
 
-      // Appointment date sync
+      // Sync appointment date
       if (profile.appointment?.appointment_date) {
         setAppointmentDate(profile.appointment.appointment_date);
         localStorage.setItem("appointment_date", profile.appointment.appointment_date);
@@ -112,9 +121,11 @@ export default function SettingsPage() {
       if (activeSupp) {
         if (activeSupp.reminder_enabled !== undefined) {
           setDailyReminder(activeSupp.reminder_enabled);
+          localStorage.setItem("pref_daily_reminder", String(activeSupp.reminder_enabled));
         }
         if (activeSupp.reminder_time) {
           setReminderTime(activeSupp.reminder_time);
+          localStorage.setItem("reminder_time", activeSupp.reminder_time);
         }
       }
     } catch (err: unknown) {
@@ -182,7 +193,6 @@ export default function SettingsPage() {
       );
     } catch (err: unknown) {
       console.error("Failed to delete supplement:", err);
-      // Fallback: Deactivate if delete endpoint fails
       try {
         await updateSupplement(id, { active: false });
         setSupplements((prev) => prev.filter((item) => item.id !== id));
@@ -251,42 +261,53 @@ export default function SettingsPage() {
   const handleReminderToggle = async () => {
     const nextState = !dailyReminder;
     setDailyReminder(nextState);
+    localStorage.setItem("pref_daily_reminder", String(nextState));
 
     try {
       const activeSupps = supplements.filter((s) => s.active);
-      await Promise.all(
-        activeSupps.map((supp) =>
-          updateSupplement(supp.id, {
-            reminder_enabled: nextState,
-            reminder_time: reminderTime,
-          })
-        )
-      );
+      if (activeSupps.length > 0) {
+        await Promise.all(
+          activeSupps.map((supp) =>
+            updateSupplement(supp.id, {
+              reminder_enabled: nextState,
+              reminder_time: reminderTime,
+            })
+          )
+        );
+      }
       showToast(
         lang === "am" ? "የማስታወሻ ቅንብር ተቀይሯል!" : "Reminder settings updated!"
       );
     } catch (err) {
-      console.error("Failed to update reminder toggle:", err);
+      console.error("Failed to update reminder toggle on backend:", err);
     }
   };
 
-  // 7. Update Reminder Time
+  // 7. Update Reminder Time (Persisted locally + synced to backend)
   const handleTimeChange = async (newTimeStr: string) => {
+    if (!newTimeStr) return;
+
     const formatted = newTimeStr.length === 5 ? `${newTimeStr}:00` : newTimeStr;
     setReminderTime(formatted);
+    localStorage.setItem("reminder_time", formatted);
 
     try {
       const activeSupps = supplements.filter((s) => s.active);
-      await Promise.all(
-        activeSupps.map((supp) =>
-          updateSupplement(supp.id, {
-            reminder_time: formatted,
-            reminder_enabled: dailyReminder,
-          })
-        )
+      if (activeSupps.length > 0) {
+        await Promise.all(
+          activeSupps.map((supp) =>
+            updateSupplement(supp.id, {
+              reminder_time: formatted,
+              reminder_enabled: dailyReminder,
+            })
+          )
+        );
+      }
+      showToast(
+        lang === "am" ? "የማስታወሻ ሰዓት ተቀይሯል!" : "Reminder time updated!"
       );
     } catch (err) {
-      console.error("Failed to update reminder time:", err);
+      console.error("Failed to update reminder time on backend:", err);
     }
   };
 
