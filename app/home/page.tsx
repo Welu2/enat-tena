@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
-import { getUserProfile, getCheckinHistory } from "@/lib/api";
+import { getUserProfile, getCheckinHistory, verifySupplementIntake } from "@/lib/api";
 import { CheckinHistoryItem } from "@/types/api";
 import { formatSyncedDate } from "@/lib/dateUtils";
 import { Loader2 } from "lucide-react";
@@ -19,8 +19,10 @@ export default function HomePage() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [userName, setUserName] = useState<string>("");
   const [daysAway, setDaysAway] = useState<number | null>(null);
+  const [supplementId, setSupplementId] = useState<string | null>(null);
   const [supplementName, setSupplementName] = useState<string | null>(null);
   const [supplementTaken, setSupplementTaken] = useState(false);
+  const [isTogglingSupplement, setIsTogglingSupplement] = useState(false);
   const [recentCheckins, setRecentCheckins] = useState<CheckinHistoryItem[]>([]);
 
   // Safe helper to extract and parse true timestamp from backend items
@@ -80,7 +82,7 @@ export default function HomePage() {
           localStorage.setItem("user_name", resolvedName);
         }
 
-        // 2. Strict Appointment Days Calculation (Guards against hardcoded dates for new accounts)
+        // 2. Strict Appointment Days Calculation
         const apptDateStr = profile?.appointment?.appointment_date || profile?.next_appointment_date;
         if (apptDateStr && typeof apptDateStr === "string" && apptDateStr.trim() !== "") {
           const apptDate = new Date(apptDateStr);
@@ -96,13 +98,13 @@ export default function HomePage() {
             setDaysAway(null);
           }
         } else {
-          // Brand new user with no registered appointment
           setDaysAway(null);
         }
 
         // 3. Resolve active supplement
         const activeSupp = profile?.supplements?.find((s) => s.active);
         if (activeSupp) {
+          setSupplementId(activeSupp.id || null);
           setSupplementName(activeSupp.name);
         }
 
@@ -112,6 +114,17 @@ export default function HomePage() {
           (a, b) => parseRecordDate(b).getTime() - parseRecordDate(a).getTime()
         );
         setRecentCheckins(sortedHistory.slice(0, 3));
+
+        // Sync initial supplement status from today's history if logged
+        if (sortedHistory.length > 0) {
+          const latestCheckin = sortedHistory[0];
+          const latestDate = parseRecordDate(latestCheckin);
+          const isToday = latestDate.toDateString() === new Date().toDateString();
+
+          if (isToday && latestCheckin.supplement_check?.taken_today) {
+            setSupplementTaken(true);
+          }
+        }
       } catch (error) {
         console.error("Dashboard data load error:", error);
       } finally {
@@ -121,6 +134,29 @@ export default function HomePage() {
 
     loadDashboardData();
   }, [router, fallbackName]);
+
+  // Handle Mark Done / Supplement Intake verification
+  const handleToggleSupplementIntake = async () => {
+    if (isTogglingSupplement) return;
+
+    const nextState = !supplementTaken;
+    setSupplementTaken(nextState);
+    setIsTogglingSupplement(true);
+
+    try {
+      await verifySupplementIntake({
+        supplementId: supplementId || undefined,
+        supplementName: supplementName || "Supplement",
+        takenToday: nextState,
+      });
+    } catch (error) {
+      console.error("Failed to verify supplement intake:", error);
+      // Revert state if API request fails
+      setSupplementTaken(!nextState);
+    } finally {
+      setIsTogglingSupplement(false);
+    }
+  };
 
   // Today's synced date
   const today = new Date();
@@ -226,14 +262,21 @@ export default function HomePage() {
               </p>
               <button
                 type="button"
-                onClick={() => setSupplementTaken((prev) => !prev)}
-                className={`mt-1.5 w-full py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                disabled={isTogglingSupplement}
+                onClick={handleToggleSupplementIntake}
+                className={`mt-1.5 w-full py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   supplementTaken
                     ? "bg-[#DDEEE4] text-brand-green border border-brand-green/30"
                     : "bg-brand-green text-white hover:bg-brand-green-hover shadow-xs"
-                }`}
+                } ${isTogglingSupplement ? "opacity-70" : ""}`}
               >
-                {supplementTaken ? `✓ ${t.done}` : t.markDone}
+                {isTogglingSupplement ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : supplementTaken ? (
+                  `✓ ${t.done}`
+                ) : (
+                  t.markDone
+                )}
               </button>
             </div>
           </div>
