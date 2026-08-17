@@ -11,9 +11,10 @@ import {
   CheckinRespondResponse,
   CompleteStageResponse,
   CheckinHistoryItem,
-  ClinicianSummary,
+
   ClinicianSummaryContent,
 } from "@/types/api";
+import { ClinicianSummary,SummaryContentJson } from "@/types/report";
 
 // Re-export types for direct imports
 export type {
@@ -434,74 +435,65 @@ export async function getCheckinDetail(checkinId: string): Promise<CheckinHistor
 // 6. Clinician Summaries & Reports
 // =========================================================
 
+function normalizeSummary(data: ClinicianSummary): ClinicianSummary {
+  if (typeof data.content_json === "string") {
+    try {
+      data.content_json = JSON.parse(
+        data.content_json
+      ) as SummaryContentJson;
+    } catch (err) {
+      console.error("Failed to parse content_json:", err);
+    }
+  }
+  return data;
+}
+
+function isNotFoundError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : "";
+  return (
+    msg.includes("404") ||
+    msg.includes("not found") ||
+    msg.includes("no summary")
+  );
+}
+
 export async function getLatestSummary(): Promise<ClinicianSummary | null> {
   try {
-    const data = await apiRequest<ClinicianSummary>("/summary/latest", {
-      method: "GET",
-    });
-
-    if (!data) return null;
-
-    if (typeof data.content_json === "string") {
-      try {
-        data.content_json = JSON.parse(data.content_json);
-      } catch (e) {
-        console.error("Failed to parse content_json string:", e);
-      }
-    }
-
-    return data;
-  } catch (error: any) {
-    if (
-      error.message?.includes("404") ||
-      error.message?.toLowerCase().includes("not found") ||
-      error.message?.toLowerCase().includes("no summary")
-    ) {
-      return null;
-    }
-    throw error;
+    const data = await apiRequest<ClinicianSummary>(
+      "/summary/latest",
+      { method: "GET" }
+    );
+    return data ? normalizeSummary(data) : null;
+  } catch (err) {
+    if (isNotFoundError(err)) return null;
+    throw err;
   }
 }
 
 export async function generateSummary(): Promise<ClinicianSummary> {
-  const data = await apiRequest<ClinicianSummary>("/summary/generate", {
-    method: "POST",
-  });
-
-  if (typeof data.content_json === "string") {
-    try {
-      data.content_json = JSON.parse(data.content_json);
-    } catch (e) {
-      console.error("Failed to parse content_json string:", e);
-    }
-  }
-
-  return data;
+  const data = await apiRequest<ClinicianSummary>(
+    "/summary/generate",
+    { method: "POST" }
+  );
+  return normalizeSummary(data);
 }
 
-export async function checkAutomaticSummary(): Promise<ClinicianSummary | null> {
+export async function checkAutomaticSummary(
+): Promise<ClinicianSummary | null> {
   try {
-    const data = await apiRequest<ClinicianSummary>("/summary/check-automatic", {
-      method: "POST",
-    });
-
-    if (!data) return null;
-
-    if (typeof data.content_json === "string") {
-      try {
-        data.content_json = JSON.parse(data.content_json);
-      } catch (e) {
-        console.error("Failed to parse content_json string:", e);
-      }
-    }
-
-    return data;
+    const data = await apiRequest<ClinicianSummary>(
+      "/summary/check-automatic",
+      { method: "POST" }
+    );
+    return data ? normalizeSummary(data) : null;
   } catch {
     return null;
   }
 }
 
-export async function getPublicSummary(slug: string): Promise<ClinicianSummary> {
+export async function getPublicSummary(
+  slug: string
+): Promise<ClinicianSummary> {
   const res = await fetch(`${BASE_URL}/summary/public/${slug}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -512,16 +504,7 @@ export async function getPublicSummary(slug: string): Promise<ClinicianSummary> 
   }
 
   const data: ClinicianSummary = await res.json();
-
-  if (typeof data.content_json === "string") {
-    try {
-      data.content_json = JSON.parse(data.content_json);
-    } catch {
-      // Retain as string fallback
-    }
-  }
-
-  return data;
+  return normalizeSummary(data);
 }
 
 // =========================================================

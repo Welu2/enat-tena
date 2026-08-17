@@ -74,16 +74,6 @@ export interface CheckinStartResponse {
   question_prompt: string;
 }
 
-export interface PendingItem {
-  item_id: string;
-  raw_text: string;
-  category: string | null;
-  duration?: { value: number | null; unit: string };
-  severity: "mild" | "moderate" | "severe" | string;
-  danger_sign: boolean;
-  confirmed: boolean;
-  verification_phrase: string;
-}
 
 export interface CheckinRespondResponse {
   session_id: string;
@@ -186,4 +176,21 @@ export interface AppNotification {
   due_at: string;
   dismissed: boolean;
   created_at: string;
+}
+export interface PendingItem {
+  item_id: string;
+  raw_text: string;
+  confirmed: boolean;
+  stage?: string;
+  category?: string | null;
+  category_display?: string | null;
+  category_display_en?: string | null;
+  verification_phrase?: string | null;
+  verification_audio_url?: string | null;
+  severity?: string | null;
+  danger_sign?: boolean;
+  duration?: {
+    value: number | null;
+    unit: string;
+  } | null;
 }

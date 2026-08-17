@@ -1,24 +1,47 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
 import { submitOnboardingData } from "@/lib/api";
+import { useTTSAudio } from "@/hooks/useTTSAudio";
 import { StepProgress } from "./components/StepProgress";
 import { StepSupplements } from "./components/StepSupplements";
 import { StepAppointment } from "./components/StepAppointment";
 import { StepMicrophone } from "./components/StepMicrophone";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 
 interface ToastNotification {
   type: "success" | "error";
   message: string;
 }
 
+const STEP_AUDIO_PROMPTS: Record<number, { am: string; en: string }> = {
+  1: {
+    am: "በእርግዝና ወቅት የሚወስዱት መድሃኒት አለ? ካለዎት ይምረጡ።",
+    en: "Are you currently taking any prenatal supplements? Please select any that apply.",
+  },
+  2: {
+    am: "ቀጣይ የቅድመ ወሊድ የህክምና ቀጠሮ አለዎት? ካለዎት ቀኑን ይምረጡ።",
+    en: "Do you have an upcoming Antenatal Care appointment? If yes, please select the date.",
+  },
+  3: {
+    am: "በድምፅዎ መረጃዎችን በቀላሉ ለመመዝገብ እባክዎ የማይክሮፎን ፈቃድ ይስጡ።",
+    en: "To record your check-ins by voice, please allow microphone access.",
+  },
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { lang, t } = useLanguage();
+  const { playingAudioKey, playTTS, stopTTS } = useTTSAudio(lang);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,13 +49,35 @@ export default function OnboardingPage() {
 
   // Form State
   const [takingSupplements, setTakingSupplements] = useState(true);
-  const [selectedSupplements, setSelectedSupplements] = useState<string[]>(["Iron"]);
+  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([
+    "Iron",
+  ]);
   const [otherSupplement, setOtherSupplement] = useState("");
   const [hasAppointment, setHasAppointment] = useState(true);
   const [appointmentDate, setAppointmentDate] = useState("2026-09-04");
-  const [micState, setMicState] = useState<"prompt" | "granted" | "denied">("prompt");
+  const [micState, setMicState] = useState<"prompt" | "granted" | "denied">(
+    "prompt"
+  );
 
-  // Ensure user is authenticated before allowing onboarding setup
+  const isPlayingThisStep = playingAudioKey === `step_${step}`;
+
+  const triggerStepAudio = useCallback(
+    (targetStep: number) => {
+      const promptObj = STEP_AUDIO_PROMPTS[targetStep];
+      if (!promptObj) return;
+      const textToRead = lang === "am" ? promptObj.am : promptObj.en;
+      playTTS(textToRead, `step_${targetStep}`);
+    },
+    [lang, playTTS]
+  );
+
+  useEffect(() => {
+    triggerStepAudio(step);
+    return () => {
+      stopTTS();
+    };
+  }, [step, triggerStepAudio, stopTTS]);
+
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
@@ -47,10 +92,12 @@ export default function OnboardingPage() {
   };
 
   const handleNext = () => {
+    stopTTS();
     setStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
   };
 
   const handleBack = () => {
+    stopTTS();
     if (step > 1) {
       setStep((prev) => (prev - 1) as 1 | 2 | 3);
     } else {
@@ -58,28 +105,38 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleToggleReadout = () => {
+    if (isPlayingThisStep) {
+      stopTTS();
+    } else {
+      triggerStepAudio(step);
+    }
+  };
+
   const finalizeOnboarding = async (micGranted: boolean) => {
+    stopTTS();
     setIsSubmitting(true);
     setToast(null);
 
     try {
-      // Build clean supplement list
       const supplementsToSave = takingSupplements
         ? [...selectedSupplements, otherSupplement.trim()].filter(Boolean)
         : [];
 
-      // 1. Submit to FastAPI Backend (Supplements & ANC Appointment)
       await submitOnboardingData({
         supplements: supplementsToSave,
-        appointmentDate: hasAppointment && appointmentDate ? appointmentDate : undefined,
+        appointmentDate:
+          hasAppointment && appointmentDate ? appointmentDate : undefined,
         reminderLeadDays: 2,
       });
 
-      // 2. Cache local preferences for dashboard access
       if (hasAppointment && appointmentDate) {
         localStorage.setItem("appointment_date", appointmentDate);
       }
-      localStorage.setItem("mic_permission", micGranted ? "granted" : "skipped");
+      localStorage.setItem(
+        "mic_permission",
+        micGranted ? "granted" : "skipped"
+      );
 
       setToast({
         type: "success",
@@ -89,7 +146,6 @@ export default function OnboardingPage() {
             : "Setup complete! Redirecting to home...",
       });
 
-      // Direct to dashboard
       setTimeout(() => {
         router.replace("/home");
       }, 700);
@@ -112,7 +168,6 @@ export default function OnboardingPage() {
   const requestMicAccess = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop media tracks immediately after checking permission
       stream.getTracks().forEach((track) => track.stop());
       setMicState("granted");
       await finalizeOnboarding(true);
@@ -124,7 +179,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="flex-1 flex flex-col justify-between px-6 sm:px-7 pt-12 sm:pt-16 pb-7 relative min-h-dvh max-w-lg mx-auto w-full select-none">
-      {/* Floating In-App Toast Notification */}
+      {/* Floating Notification */}
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-in slide-in-from-top-4 duration-300">
           <div
@@ -135,21 +190,51 @@ export default function OnboardingPage() {
             }`}
           >
             {toast.type === "success" ? (
-              <CheckCircle2 size={18} className="flex-shrink-0 text-brand-green" />
+              <CheckCircle2
+                size={18}
+                className="flex-shrink-0 text-brand-green"
+              />
             ) : (
               <AlertCircle size={18} className="flex-shrink-0 text-red-600" />
             )}
-            <p className="text-xs font-semibold leading-snug">{toast.message}</p>
+            <p className="text-xs font-semibold leading-snug">
+              {toast.message}
+            </p>
           </div>
         </div>
       )}
 
-      {/* Header with Step Back Handler */}
+      {/* Header */}
       <Header showBack={true} onBack={handleBack} />
 
       <div className="flex-1 flex flex-col justify-between mt-4">
-        <div className="space-y-6">
+        <div className="space-y-4">
           <StepProgress currentStep={step} />
+
+          {/* Explicit Read-Aloud Action Button */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleToggleReadout}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                isPlayingThisStep
+                  ? "bg-brand-green text-white border-brand-green shadow-sm animate-pulse"
+                  : "bg-[#F4EFE6] text-brand-text border-gray-200 hover:bg-[#EAE3D6]"
+              }`}
+            >
+              {isPlayingThisStep ? (
+                <>
+                  <VolumeX size={15} />
+                  <span>{lang === "am" ? "ድምጽ አቁም" : "Stop reading"}</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 size={15} className="text-brand-green" />
+                  <span>{lang === "am" ? "ጥያቄውን አንብብልኝ" : "Read aloud"}</span>
+                </>
+              )}
+            </button>
+          </div>
 
           {step === 1 && (
             <StepSupplements
@@ -198,7 +283,9 @@ export default function OnboardingPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 size={18} className="animate-spin" />
-                      <span>{lang === "am" ? "በማስቀመጥ ላይ..." : "Saving..."}</span>
+                      <span>
+                        {lang === "am" ? "በማስቀመጥ ላይ..." : "Saving..."}
+                      </span>
                     </>
                   ) : (
                     t.allowMic
