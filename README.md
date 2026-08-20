@@ -1,37 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Enat Tena (እናት ጤና) — Frontend
 
-## Getting Started
+Voice-first antenatal care (ANC) web application built for expectant mothers in Ethiopia. Enat Tena provides daily voice check-ins in **Amharic** and **English**, automatic clinical entity extraction, danger sign triage, and clinician summary reports accessible via QR code.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* **Voice Check-in Wizard**
+  * 4-step sequential questionnaire: Symptoms, Food intake, Supplement adherence (Iron/Folic acid), and Open closing notes.
+  * In-browser `audio/webm` recording with MediaRecorder API.
+  * Speech recognition (ASR) and clinical entity extraction via Addis AI.
+  * Amharic Text-to-Speech (TTS) audio playback on all questions.
+  * Item verification list with voice re-recording and manual inline edit.
+  * Instant obstetric danger sign detection and triage alert banners.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+* **Clinician Summary & QR Sharing**
+  * Automatically aggregates patient history across visits into clinician-ready summaries.
+  * Visualizes supplement compliance percentages ($Taken / Tracked$).
+  * Lists logged danger signs with exact timestamps and severity levels.
+  * Includes standing clinical reminders (e.g., MUAC screening).
+  * Generates doctor-facing share links and downloadable QR codes for clinic visits.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+* **Check-in History & Daily Logs**
+  * Calendar-grouped daily check-ins with symptoms, food logs, and adherence flags.
+  * Dedicated check-in inspection page (`/history/[id]`).
 
-## Learn More
+* **Interactive Onboarding**
+  * Guided onboarding flow for supplements, ANC appointment scheduling, and microphone permissions.
+  * Read-aloud voice support on every onboarding step.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+* **Framework:** Next.js (App Router, Turbopack)
+* **Language:** TypeScript
+* **Styling:** Tailwind CSS
+* **Icons:** Lucide React
+* **Audio & Voice:** Web Audio API, MediaRecorder (`audio/webm`), Addis AI ASR / TTS
+* **State Management:** React Context (`LanguageContext`), Custom React Hooks
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# enat-tena
+```text
+├── app/
+│   ├── checkin/               # 4-stage voice check-in wizard
+│   ├── history/               # Check-in log list & detail view ([id])
+│   ├── home/                  # Patient dashboard & quick actions
+│   ├── onboarding/            # Setup (supplements, ANC date, mic permission)
+│   ├── report/                # Clinician health summary & QR generator
+│   └── summary/public/[slug]/ # Doctor-facing public summary view
+├── components/
+│   ├── checkin/               # Recording controls, stage prompts, verification list
+│   ├── history/               # Daily log cards and danger alerts
+│   ├── report/                # Summary hero, adherence meter, danger list
+│   ├── BottomNav.tsx          # Mobile navigation bar
+│   └── Header.tsx             # Global header with language toggle
+├── context/
+│   └── LanguageContext.tsx    # Amharic ('am') / English ('en') state provider
+├── hooks/
+│   ├── useAggregatedCheckinDetail.ts # Check-in detail fetcher
+│   ├── useCheckinSession.ts   # Check-in state machine & stage navigator
+│   ├── useClinicianReport.ts  # Summary fetching, generation & regeneration
+│   ├── useTTSAudio.ts         # Voice synthesis & audio streaming
+│   └── useVoiceRecorder.ts    # WebM media recorder & stream handler
+├── lib/
+│   ├── api.ts                 # Backend REST client
+│   └── dateUtils.ts           # Synced date formatting utilities
+├── types/
+│   ├── api.ts                 # Check-in models & pending verification items
+│   ├── checkin.ts             # Check-in step maps & stages
+│   └── report.ts              # Clinician summary & adherence types
+└── utils/
+    ├── checkinPrompts.ts      # Stage prompt strings (Amharic/English)
+    ├── historyHelpers.ts      # Check-in history deduplication & parsing
+    └── reportHelpers.ts       # Summary math & date range formatters
