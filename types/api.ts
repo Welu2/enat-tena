@@ -93,11 +93,19 @@ export interface UserProfile {
   malaria_endemic_area?: boolean;
   current_medications?: string | null;
   hospital?: string;
+  full_name?: string;
   onboarding_completed: boolean;
   current_pregnancy_status: GestationalAgeCalculation;
   supplements: Supplement[];
   appointment?: AncAppointment | null;
-  pending_reminders?: any[];
+  pending_reminders?: PendingReminder[];
+}
+
+export interface PendingReminder {
+  id: string;
+  type: string;
+  message: string;
+  due_at: string;
 }
 
 export interface OnboardingPayload {
@@ -197,13 +205,18 @@ export interface CompleteStageResponse {
   check_in_id?: string;
 }
 
+export interface ClosingMention {
+  raw_text: string;
+  topic?: string | null;
+}
+
 export interface CheckInHistoryItem {
   id: string;
   timestamp: string;
   symptoms: PendingItem[];
   food_log: { raw_text: string; confirmed: boolean; food_groups?: FoodGroup[] };
   supplement_check: { supplement_name: string; taken_today: boolean; confirmed: boolean };
-  closing_mentions: any[];
+  closing_mentions: ClosingMention[];
   danger_sign_triggered: boolean;
   summary_text_am: string;
   summary_text_en: string;
@@ -221,28 +234,58 @@ export interface ClinicianSummaryResponse {
   anc_contact_title: string;
   anc_contact_title_am: string;
   target_gestational_weeks: number;
-  content_json: {
-    anc_contact: Record<string, any>;
-    danger_signs: any[];
-    recorded_symptoms: any[];
-    food_logs: any[];
-    nutritional_variation: {
-      total_items_classified: number;
-      tracked_days: number;
-      percentages: Record<FoodGroup, number>;
-    };
-    supplement_adherence: {
-      taken_days: number;
-      tracked_days: number;
-      total_days_in_period: number;
-      percentage: number;
-    };
-    closing_mentions: any[];
-    muac_reminder: string;
-    provenance_note: string;
-  };
+  content_json: SummaryContentJsonApi;
   share_link_slug: string;
   qr_code_url: string;
+}
+
+export interface SummaryDangerSign {
+  date: string;
+  raw_text: string;
+  severity?: string;
+  category?: string | null;
+}
+
+export interface SummarySymptom {
+  date: string;
+  raw_text: string;
+  severity?: string;
+  category?: string | null;
+  category_display?: string | null;
+}
+
+export interface SummaryFoodLog {
+  date: string;
+  raw_text: string;
+  food_groups?: FoodGroup[];
+}
+
+export interface AncContactInfo {
+  contact_number: number;
+  title_en: string;
+  title_am: string;
+  target_gestational_weeks: number;
+}
+
+export interface SummaryContentJsonApi {
+  anc_contact: AncContactInfo;
+  danger_signs: SummaryDangerSign[];
+  recorded_symptoms: SummarySymptom[];
+  food_logs: SummaryFoodLog[];
+  nutritional_variation: {
+    total_items_classified: number;
+    tracked_days: number;
+    percentages: Record<FoodGroup, number>;
+  };
+  supplement_adherence: {
+    taken_days: number;
+    tracked_days: number;
+    total_days_in_period: number;
+    percentage: number;
+  };
+  closing_mentions: ClosingMention[];
+  muac_reminder: string;
+  provenance_note: string;
 }
 
 export interface AppNotification {

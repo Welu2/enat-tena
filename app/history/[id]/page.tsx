@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
+import { checkinService } from "@/services/checkin.service";
+import { CheckInHistoryItem, PendingItem } from "@/types/api";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -12,141 +14,98 @@ import {
   Pill,
   Baby,
   FileText,
-  MessageSquare,
   ShieldAlert,
-  Calendar,
   Volume2,
   Sparkles,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-
-// ============================================================================
-// Clinical Detail Mock Registry
-// ============================================================================
-interface SymptomDetail {
-  nameAm: string;
-  nameEn: string;
-  severity: "mild" | "moderate" | "severe";
-  durationAm: string;
-  durationEn: string;
-  isDangerSign: boolean;
-}
-
-interface FoodDetail {
-  name: string;
-  foodGroupAm: string;
-  foodGroupEn: string;
-}
-
-interface SupplementDetail {
-  name: string;
-  dosage: string;
-  taken: boolean;
-  timeLogged: string;
-}
-
-interface CheckinDetailData {
-  id: string;
-  dateAm: string;
-  dateEn: string;
-  gaWeeks: number;
-  gaDays: number;
-  hasDangerSign: boolean;
-  dangerAlertAm?: string;
-  dangerAlertEn?: string;
-  transcript: string;
-  symptoms: SymptomDetail[];
-  foodLogs: FoodDetail[];
-  supplements: SupplementDetail[];
-  closingMentions: { textAm: string; textEn: string }[];
-  midwifeGuidanceAm: string;
-  midwifeGuidanceEn: string;
-}
-
-const MOCK_DETAILS: Record<string, CheckinDetailData> = {
-  h1: {
-    id: "h1",
-    dateAm: "ዛሬ፣ ጳጉሜ 1 ቀን 2018",
-    dateEn: "Today, Sep 6, 2026",
-    gaWeeks: 24,
-    gaDays: 3,
-    hasDangerSign: false,
-    transcript: "ዛሬ ጧት ቀላል የድካም ስሜት ተሰምቶኝ ነበር። ቁርስ እንጀራ በሽሮ እና የተቀቀለ እንቁላል ተመግቤያለሁ። የዛሬውን የብረት እንክብል (IFA) ወስጃለሁ።",
-    symptoms: [
-      {
-        nameAm: "ቀላል የድካም ስሜት",
-        nameEn: "Mild generalized fatigue",
-        severity: "mild",
-        durationAm: "ለጥቂት ሰዓታት",
-        durationEn: "A few hours",
-        isDangerSign: false,
-      },
-    ],
-    foodLogs: [
-      { name: "እንጀራ በሽሮ", foodGroupAm: "እህልና ጥራጥሬ", foodGroupEn: "Grains & Legumes" },
-      { name: "የተቀቀለ እንቁላል", foodGroupAm: "ፕሮቲን", foodGroupEn: "Protein / Egg" },
-      { name: "ሙዝ", foodGroupAm: "ፍራፍሬ", foodGroupEn: "Fruit" },
-    ],
-    supplements: [
-      { name: "Iron & Folic Acid (IFA)", dosage: "60mg / 400µg", taken: true, timeLogged: "09:15 AM" },
-      { name: "Calcium (ካልሲየም)", dosage: "1.5g", taken: false, timeLogged: "ያልተወሰደ" },
-    ],
-    closingMentions: [
-      { textAm: "በቀን ውስጥ በቂ ውሃ መጠጣት እንደሚገባ ተጠይቋል", textEn: "Inquired about optimal daily water hydration" },
-    ],
-    midwifeGuidanceAm: "የጤና ሁኔታዎ በመልካም ደረጃ ላይ ይገኛል። የቀረዎትን የካልሲየም እንክብል ከምሳ በኋላ እንዲወስዱ ይመከራል።",
-    midwifeGuidanceEn: "Vitals and intake look optimal. Remember to take your prescribed Calcium dose after lunch.",
-  },
-  h3: {
-    id: "h3",
-    dateAm: "ነሐሴ 28 ቀን 2018",
-    dateEn: "Sep 3, 2026",
-    gaWeeks: 24,
-    gaDays: 0,
-    hasDangerSign: true,
-    dangerAlertAm: "ጽኑ ራስ ምታት እና የዓይን ብዥታ የአስቸኳይ ፕሪኤክላምፕሲያ (Preeclampsia) ምልክት ሊሆን ይችላል!",
-    dangerAlertEn: "Severe persistent headache and blurred vision trigger urgent preeclampsia triage protocol!",
-    transcript: "ከጧት ጀምሮ ከፍተኛ የራስ ምታት አለኝ። ዓይኔ ላይ የማየት ብዥታ እና ማዞር እየተሰማኝ ነው።",
-    symptoms: [
-      {
-        nameAm: "ጽኑ እና የማያቋርጥ ራስ ምታት",
-        nameEn: "Severe persistent headache",
-        severity: "severe",
-        durationAm: "ከጧት ጀምሮ",
-        durationEn: "Since morning",
-        isDangerSign: true,
-      },
-      {
-        nameAm: "የዓይን ብዥታ እና ማዞር",
-        nameEn: "Blurred vision & light dizziness",
-        severity: "severe",
-        durationAm: "የቀጠለ",
-        durationEn: "Ongoing",
-        isDangerSign: true,
-      },
-    ],
-    foodLogs: [
-      { name: "አጃ ሾርባ", foodGroupAm: "እህል", foodGroupEn: "Grains / Oats" },
-      { name: "ሞቅ ያለ ሻይ", foodGroupAm: "ፈሳሽ", foodGroupEn: "Fluids" },
-    ],
-    supplements: [
-      { name: "Iron & Folic Acid (IFA)", dosage: "60mg / 400µg", taken: true, timeLogged: "08:30 AM" },
-    ],
-    closingMentions: [
-      { textAm: "የደም ግፊት ምርመራ በአስቸኳይ ያስፈልጋል", textEn: "Urgent BP screening advised" },
-    ],
-    midwifeGuidanceAm: "አስቸኳይ ክሊኒካል ምርመራ ያስፈልጋል። እባክዎ በአቅራቢያዎ ወደሚገኝ ጤና ጣቢያ ወይም ሆስፒታል በአፋጣኝ ይሂዱ።",
-    midwifeGuidanceEn: "Urgent evaluation required. Please report to the maternal emergency triage at your nearest hospital.",
-  },
-};
 
 export default function CheckinDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { lang, t } = useLanguage();
+  const { lang } = useLanguage();
   const isAm = lang === "am";
 
-  const checkinId = (params?.id as string) || "h1";
-  const detail = MOCK_DETAILS[checkinId] || MOCK_DETAILS["h1"];
+  const checkinId = (params?.id as string) || "";
+
+  const [detail, setDetail] = useState<CheckInHistoryItem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!checkinId) return;
+
+    async function loadDetail() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await checkinService.getCheckInDetail(checkinId);
+        setDetail(data);
+      } catch (err) {
+        console.error("Failed to load check-in detail:", err);
+        setError(
+          isAm
+            ? "የምርመራውን ዝርዝር መረጃ መጫን አልተቻለም።"
+            : "Could not load check-in details."
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDetail();
+  }, [checkinId, isAm]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-dvh w-full bg-[#FAF7F2] text-[#2C2723] flex justify-center items-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 size={28} className="animate-spin text-[#2D6A4F]" />
+          <p className="text-xs font-semibold text-[#7A7165]">
+            {isAm ? "መረጃዎችን በማዘጋጀት ላይ..." : "Loading details..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !detail) {
+    return (
+      <div className="min-h-dvh w-full bg-[#FAF7F2] text-[#2C2723] flex justify-center">
+        <main className="w-full max-w-md flex flex-col items-center justify-center p-6 gap-4">
+          <AlertCircle size={36} className="text-red-500" />
+          <p className="text-sm font-semibold text-[#1F2937] text-center">
+            {error || (isAm ? "ምርመራው አልተገኘም" : "Check-in not found")}
+          </p>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-6 py-2.5 rounded-2xl bg-[#2D6A4F] text-white text-xs font-bold cursor-pointer"
+          >
+            {isAm ? "ተመለስ" : "Go Back"}
+          </button>
+        </main>
+      </div>
+    );
+  }
+
+  const hasDangerSign = detail.danger_sign_triggered;
+  const symptoms: PendingItem[] = detail.symptoms || [];
+  const foodLog = detail.food_log;
+  const supplementCheck = detail.supplement_check;
+  const closingMentions = detail.closing_mentions || [];
+
+  const checkinDate = detail.timestamp
+    ? new Date(detail.timestamp).toLocaleDateString(isAm ? "am-ET" : "en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : isAm
+    ? "ዛሬ"
+    : "Today";
 
   return (
     <div className="min-h-dvh w-full bg-[#FAF7F2] text-[#2C2723] flex justify-center">
@@ -169,14 +128,14 @@ export default function CheckinDetailPage() {
                 {isAm ? "የምርመራ ዝርዝር" : "Check-in Summary"}
               </span>
               <h1 className="text-sm font-bold text-[#1F2937]">
-                {isAm ? detail.dateAm : detail.dateEn}
+                {checkinDate}
               </h1>
             </div>
 
             <Header />
           </div>
 
-          {/* Gestational Age Milestone Banner */}
+          {/* Status Banner */}
           <div className="flex items-center justify-between p-3 rounded-2xl bg-white border border-[#E8E1D5] shadow-xs">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#2D6A4F] flex items-center justify-center">
@@ -184,17 +143,15 @@ export default function CheckinDetailPage() {
               </span>
               <div>
                 <p className="text-[10px] font-semibold text-[#6B7280]">
-                  {isAm ? "የእርግዝና ዕድሜ" : "Gestational Age"}
+                  {isAm ? "የምርመራ ሁኔታ" : "Check-in Status"}
                 </p>
                 <p className="text-xs font-bold text-[#1F2937]">
-                  {isAm
-                    ? `ሳምንት ${detail.gaWeeks} + ${detail.gaDays} ቀናት`
-                    : `Week ${detail.gaWeeks} + ${detail.gaDays} days`}
+                  {symptoms.length} {isAm ? "ምልክቶች ተመዝግበዋል" : "symptoms recorded"}
                 </p>
               </div>
             </div>
 
-            {detail.hasDangerSign ? (
+            {hasDangerSign ? (
               <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 flex items-center gap-1">
                 <ShieldAlert size={12} />
                 <span>{isAm ? "የአደጋ ምልክት" : "High Priority"}</span>
@@ -212,7 +169,7 @@ export default function CheckinDetailPage() {
         <div className="flex-1 space-y-3.5 py-3 overflow-y-auto">
           
           {/* Urgent Danger Alert Banner */}
-          {detail.hasDangerSign && (
+          {hasDangerSign && (
             <div className="p-4 rounded-3xl bg-red-50 border border-red-200 text-red-900 space-y-1.5 shadow-xs animate-in fade-in">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={18} className="text-red-600 flex-shrink-0" />
@@ -221,28 +178,29 @@ export default function CheckinDetailPage() {
                 </h3>
               </div>
               <p className="text-xs font-semibold leading-relaxed">
-                {isAm ? detail.dangerAlertAm : detail.dangerAlertEn}
+                {isAm
+                  ? "የአደጋ ምልክት ተመዝግቧል — በአስቸኳይ የህክምና እርዳታ ያግኙ"
+                  : "Danger sign detected — seek immediate medical attention"}
               </p>
             </div>
           )}
 
-          {/* 1. Voice Intake Transcript Card */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
-                <Volume2 size={15} className="text-[#2D6A4F]" />
-                <span>{isAm ? "የድምፅ ቃለ-መጠይቅ ቅጂ" : "Voice Transcript"}</span>
-              </span>
-              <span className="text-[10px] font-semibold bg-[#FAF7F2] text-[#6B7280] px-2 py-0.5 rounded-md border border-[#E8E1D5]">
-                {isAm ? "በአማርኛ የተቀዳ" : "Amharic Audio"}
-              </span>
+          {/* 1. Voice Intake Summary */}
+          {(detail.summary_text_am || detail.summary_text_en) && (
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
+                  <Volume2 size={15} className="text-[#2D6A4F]" />
+                  <span>{isAm ? "የክሊኒካል ማጠቃለያ" : "Clinical Summary"}</span>
+                </span>
+              </div>
+              <p className="text-xs text-[#4B5563] italic bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8E1D5]/70 leading-relaxed">
+                &ldquo;{isAm ? detail.summary_text_am : detail.summary_text_en}&rdquo;
+              </p>
             </div>
-            <p className="text-xs text-[#4B5563] italic bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8E1D5]/70 leading-relaxed">
-              "{detail.transcript}"
-            </p>
-          </div>
+          )}
 
-          {/* 2. Extracted Symptoms & Triage Card */}
+          {/* 2. Extracted Symptoms Card */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
@@ -250,127 +208,136 @@ export default function CheckinDetailPage() {
                 <span>{isAm ? "የተመዘገቡ ምልክቶች" : "Reported Symptoms"}</span>
               </span>
               <span className="text-[10px] font-semibold text-[#6B7280]">
-                {detail.symptoms.length} {isAm ? "ምልክት" : "items"}
+                {symptoms.length} {isAm ? "ምልክት" : "items"}
               </span>
             </div>
 
-            {detail.symptoms.length === 0 ? (
+            {symptoms.length === 0 ? (
               <p className="text-xs text-gray-400 py-1">
                 {isAm ? "ምንም ዓይነት የህመም ምልክት አልተመዘገበም።" : "No adverse symptoms reported."}
               </p>
             ) : (
               <div className="space-y-2">
-                {detail.symptoms.map((s, idx) => (
+                {symptoms.map((s, idx) => (
                   <div
-                    key={idx}
+                    key={s.item_id || idx}
                     className={`p-3 rounded-2xl border flex items-center justify-between ${
-                      s.isDangerSign
+                      s.danger_sign
                         ? "bg-red-50/70 border-red-200"
                         : "bg-[#FAF7F2] border-[#E8E1D5]"
                     }`}
                   >
                     <div>
-                      <p className={`text-xs font-bold ${s.isDangerSign ? "text-red-900" : "text-[#1F2937]"}`}>
-                        {isAm ? s.nameAm : s.nameEn}
+                      <p className={`text-xs font-bold ${s.danger_sign ? "text-red-900" : "text-[#1F2937]"}`}>
+                        {s.raw_text}
                       </p>
-                      <p className="text-[10px] text-[#6B7280]">
-                        {isAm ? `የቆይታ ጊዜ: ${s.durationAm}` : `Duration: ${s.durationEn}`}
-                      </p>
+                      {s.duration && (
+                        <p className="text-[10px] text-[#6B7280]">
+                          {isAm ? "የቆይታ ጊዜ:" : "Duration:"} {s.duration.value} {s.duration.unit}
+                        </p>
+                      )}
                     </div>
 
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        s.severity === "severe"
-                          ? "bg-red-200 text-red-800"
-                          : "bg-emerald-100 text-[#2D6A4F]"
-                      }`}
-                    >
-                      {s.severity}
-                    </span>
+                    {s.severity && (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          s.severity === "severe"
+                            ? "bg-red-200 text-red-800"
+                            : "bg-emerald-100 text-[#2D6A4F]"
+                        }`}
+                      >
+                        {s.severity}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 3. Nutrition & Food Groups Card */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
-                <Utensils size={15} className="text-amber-600" />
-                <span>{isAm ? "የተመገቧቸው ምግቦች" : "Dietary Intake"}</span>
-              </span>
-              <span className="text-[10px] font-semibold text-[#6B7280]">
-                {detail.foodLogs.length} {isAm ? "የምግብ አይነቶች" : "food items"}
-              </span>
-            </div>
+          {/* 3. Nutrition & Food Card */}
+          {foodLog && (
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
+                  <Utensils size={15} className="text-amber-600" />
+                  <span>{isAm ? "የተመገቧቸው ምግቦች" : "Dietary Intake"}</span>
+                </span>
+              </div>
 
-            <div className="grid grid-cols-1 gap-2">
-              {detail.foodLogs.map((food, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1D5]"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-xs font-bold text-[#1F2937]">{food.name}</span>
-                  </div>
-                  <span className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded-md border border-[#E8E1D5]">
-                    {isAm ? food.foodGroupAm : food.foodGroupEn}
-                  </span>
+              <div className="p-2.5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1D5]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="text-xs font-bold text-[#1F2937]">{foodLog.raw_text}</span>
                 </div>
-              ))}
+                {foodLog.food_groups && foodLog.food_groups.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {foodLog.food_groups.map((fg) => (
+                      <span
+                        key={fg}
+                        className="text-[10px] font-semibold text-gray-500 bg-white px-2 py-0.5 rounded-md border border-[#E8E1D5]"
+                      >
+                        {fg}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 4. Supplement Compliance Card */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
-                <Pill size={15} className="text-[#2D6A4F]" />
-                <span>{isAm ? "የቅድመ ወሊድ እንክብሎች" : "Prescribed Supplements"}</span>
-              </span>
-            </div>
+          {supplementCheck && (
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1F2937] flex items-center gap-1.5">
+                  <Pill size={15} className="text-[#2D6A4F]" />
+                  <span>{isAm ? "የቅድመ ወሊድ እንክብሎች" : "Prescribed Supplements"}</span>
+                </span>
+              </div>
 
-            <div className="space-y-2">
-              {detail.supplements.map((supp, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center justify-between p-3 rounded-2xl border ${
-                    supp.taken ? "bg-[#F0F7F3] border-[#C8E1D3]" : "bg-gray-50 border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                        supp.taken ? "bg-[#2D6A4F] text-white" : "border-2 border-gray-300 bg-white"
-                      }`}
-                    >
-                      {supp.taken && <CheckCircle2 size={13} />}
-                    </div>
-                    <div>
-                      <p className={`text-xs font-bold ${supp.taken ? "text-[#1F2937]" : "text-gray-400 line-through"}`}>
-                        {supp.name}
-                      </p>
-                      <p className="text-[10px] text-[#6B7280]">{supp.dosage}</p>
-                    </div>
+              <div
+                className={`flex items-center justify-between p-3 rounded-2xl border ${
+                  supplementCheck.taken_today ? "bg-[#F0F7F3] border-[#C8E1D3]" : "bg-gray-50 border-gray-200"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                      supplementCheck.taken_today ? "bg-[#2D6A4F] text-white" : "border-2 border-gray-300 bg-white"
+                    }`}
+                  >
+                    {supplementCheck.taken_today && <CheckCircle2 size={13} />}
                   </div>
-                  <span className="text-[10px] font-semibold text-gray-400">{supp.timeLogged}</span>
+                  <p className={`text-xs font-bold ${supplementCheck.taken_today ? "text-[#1F2937]" : "text-gray-400 line-through"}`}>
+                    {supplementCheck.supplement_name}
+                  </p>
                 </div>
-              ))}
+                <span className="text-[10px] font-semibold text-gray-400">
+                  {supplementCheck.taken_today
+                    ? isAm ? "ተወስዷል ✓" : "Taken ✓"
+                    : isAm ? "ያልተወሰደ" : "Not taken"}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 5. Midwife Guidance & Telemetry Notes Card */}
-          <div className="bg-gradient-to-br from-[#2D6A4F]/10 to-[#1E4D38]/5 rounded-3xl p-4 sm:p-5 border border-[#2D6A4F]/20 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#2D6A4F]">
-              <Sparkles size={15} />
-              <span>{isAm ? "የአዋላጅ እና የክሊኒክ ምክር" : "Clinical Midwife Guidance"}</span>
+          {/* 5. Closing Mentions */}
+          {closingMentions.length > 0 && (
+            <div className="bg-gradient-to-br from-[#2D6A4F]/10 to-[#1E4D38]/5 rounded-3xl p-4 sm:p-5 border border-[#2D6A4F]/20 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#2D6A4F]">
+                <Sparkles size={15} />
+                <span>{isAm ? "ተጨማሪ ማስታወሻዎች" : "Additional Notes"}</span>
+              </div>
+              <div className="space-y-1">
+                {closingMentions.map((mention, idx) => (
+                  <p key={idx} className="text-xs text-[#2D6A4F] leading-relaxed font-medium">
+                    • {mention.raw_text}
+                  </p>
+                ))}
+              </div>
             </div>
-            <p className="text-xs text-[#2D6A4F] leading-relaxed font-medium">
-              {isAm ? detail.midwifeGuidanceAm : detail.midwifeGuidanceEn}
-            </p>
-          </div>
+          )}
         </div>
 
         {/* Bottom Back Button */}
