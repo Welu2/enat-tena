@@ -1,7 +1,8 @@
-import { AuthResponse } from '@/types/api';
-
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const TOKEN_STORAGE_KEY = 'enatai_access_token';
+
+/** Routes where 401 should NOT trigger a redirect (prevents infinite loops) */
+const AUTH_ROUTES = ['/login', '/signup', '/forgot-password'];
 
 class ApiClient {
   private baseURL: string;
@@ -16,9 +17,11 @@ class ApiClient {
   }
 
   public setToken(token: string): void {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    }
+    if (typeof window === 'undefined') return;
+    // Sanitize: strip whitespace/newlines that could corrupt the Authorization header
+    const sanitized = token.trim().replace(/[\r\n]/g, '');
+    if (!sanitized) return;
+    localStorage.setItem(TOKEN_STORAGE_KEY, sanitized);
   }
 
   public clearToken(): void {
@@ -38,7 +41,7 @@ class ApiClient {
     const token = this.getToken();
     const headers = new Headers(options.headers || {});
 
-    // Attach JWT if available
+    // Attach JWT if available and well-formed
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
     }
@@ -58,8 +61,13 @@ class ApiClient {
 
     if (response.status === 401) {
       this.clearToken();
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
+      // Guard against redirect loops: only redirect if NOT already on an auth route
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const isOnAuthRoute = AUTH_ROUTES.some((route) => currentPath.startsWith(route));
+        if (!isOnAuthRoute) {
+          window.location.href = '/login';
+        }
       }
       throw new Error('Session expired or unauthorized. Please log in again.');
     }
@@ -92,7 +100,7 @@ class ApiClient {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
-  public post<T>(endpoint: string, body?: any, options?: RequestInit): Promise<T> {
+  public post<T>(endpoint: string, body?: unknown, options?: RequestInit): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
@@ -100,7 +108,7 @@ class ApiClient {
     });
   }
 
-  public put<T>(endpoint: string, body?: any, options?: RequestInit): Promise<T> {
+  public put<T>(endpoint: string, body?: unknown, options?: RequestInit): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
@@ -108,7 +116,7 @@ class ApiClient {
     });
   }
 
-  public patch<T>(endpoint: string, body?: any, options?: RequestInit): Promise<T> {
+  public patch<T>(endpoint: string, body?: unknown, options?: RequestInit): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
