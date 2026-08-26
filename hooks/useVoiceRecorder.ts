@@ -54,8 +54,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'Microphone access denied');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Microphone access denied');
     }
   }, []);
 

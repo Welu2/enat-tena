@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { summaryService } from "@/services/summary.service";
-import { ClinicianSummaryResponse } from "@/types/api";
+import { ClinicianSummaryResponse, SummaryDangerSign, SummarySymptom, FoodGroup } from "@/types/api";
 import {
   Stethoscope,
   AlertTriangle,
@@ -125,7 +125,7 @@ export default function PublicDoctorSummaryPage() {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-2 pt-1">
-              {dangerSigns.map((ds: any, i: number) => (
+              {dangerSigns.map((ds: SummaryDangerSign, i: number) => (
                 <div key={i} className="p-3 bg-white rounded-2xl border border-red-200">
                   <p className="text-xs font-bold text-red-900">
                     {ds.category_display_en || ds.category_display || ds.raw_text}
@@ -185,7 +185,7 @@ export default function PublicDoctorSummaryPage() {
             </div>
 
             <div className="grid grid-cols-4 gap-1.5 text-center text-[10px]">
-              {Object.entries(nutrition?.percentages || {}).map(([group, pct]: any) => (
+              {Object.entries(nutrition?.percentages || {}).map(([group, pct]: [string, number]) => (
                 <div key={group} className="p-2 rounded-xl bg-neutral-50 border border-neutral-200">
                   <span className="font-bold text-neutral-800 block capitalize truncate">
                     {group.replace("_", " ")}
@@ -207,7 +207,7 @@ export default function PublicDoctorSummaryPage() {
             <p className="text-xs text-neutral-400 py-2">No mild or moderate symptoms logged.</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-2">
-              {recordedSymptoms.map((s: any, idx: number) => (
+              {recordedSymptoms.map((s: SummarySymptom, idx: number) => (
                 <div key={idx} className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200">
                   <p className="text-xs font-semibold text-neutral-900">{s.raw_text || s.category_display}</p>
                   <p className="text-[10px] text-neutral-500 mt-0.5">Reported Date: {s.date} • Severity: {s.severity}</p>

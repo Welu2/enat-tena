@@ -125,7 +125,7 @@ export default function CheckinWizardPage() {
   } = useVoiceRecorder();
 
   const appendDebugLog = useCallback(
-    (action: string, status: "pending" | "success" | "error", latencyMs?: number, payload?: any, response?: any) => {
+    (action: string, status: "pending" | "success" | "error", latencyMs?: number, payload?: unknown, response?: unknown) => {
       const entry: DebugLogEntry = {
         timestamp: new Date().toISOString().split("T")[1].slice(0, 8),
         action,
@@ -164,8 +164,9 @@ export default function CheckinWizardPage() {
       setTranscript("");
 
       appendDebugLog("POST /checkin/start", "success", latency, null, res);
-    } catch (err: any) {
-      appendDebugLog("POST /checkin/start", "error", Date.now() - startTime, null, { error: err.message });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      appendDebugLog("POST /checkin/start", "error", Date.now() - startTime, null, { error: errorMsg });
     } finally {
       setIsInitializing(false);
     }
@@ -267,9 +268,10 @@ export default function CheckinWizardPage() {
         if (isAm && firstItem?.verification_audio_url) {
           playAmharicBackendAudio(firstItem.verification_audio_url);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         appendDebugLog(`POST /checkin/${sessionId}/respond`, "error", Date.now() - startTime, null, {
-          error: err.message,
+          error: errorMsg,
         });
       } finally {
         setIsTranscribing(false);
@@ -300,9 +302,10 @@ export default function CheckinWizardPage() {
 
         setPendingItems(res.pending_items);
         appendDebugLog(`POST /checkin/.../voice-correct`, "success", latency, null, res);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         appendDebugLog(`POST /checkin/.../voice-correct`, "error", Date.now() - startTime, null, {
-          error: err.message,
+          error: errorMsg,
         });
       } finally {
         setIsTranscribing(false);
@@ -403,9 +406,10 @@ export default function CheckinWizardPage() {
         setTranscript("");
         setShowManualInput(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       appendDebugLog(`POST /checkin/${sessionId}/complete`, "error", Date.now() - startTime, null, {
-        error: err.message,
+        error: errorMsg,
       });
     } finally {
       setIsAdvancingStage(false);

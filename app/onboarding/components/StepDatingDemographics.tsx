@@ -24,7 +24,12 @@ export function StepDatingDemographics({ data, updateData }: StepComponentProps)
 
       setIsCalculating(true);
       try {
-        const payload: any = {
+        const payload: {
+          pregnancy_counting_method: string;
+          lnmp_date?: string;
+          manual_gestational_weeks?: number;
+          manual_gestational_days?: number;
+        } = {
           pregnancy_counting_method: data.datingMethod,
         };
 

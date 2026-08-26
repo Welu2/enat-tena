@@ -160,13 +160,13 @@ export default function HomePage() {
   }, [fetchDashboardData]);
 
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (isKickTimerRunning) {
       interval = setInterval(() => {
         setKickTimerSeconds((prev) => prev + 1);
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => { if (interval) clearInterval(interval); };
   }, [isKickTimerRunning]);
 
   const handleToggleSupplement = async (supplement: LocalSupplementItem) => {

@@ -9,8 +9,8 @@ export interface DebugLogEntry {
   action: string;
   status: "pending" | "success" | "error";
   latencyMs?: number;
-  payload?: any;
-  response?: any;
+  payload?: unknown;
+  response?: unknown;
 }
 
 interface CheckinDebugPanelProps {
@@ -193,7 +193,7 @@ export function CheckinDebugPanel({
                           {l.latencyMs && <span>{l.latencyMs}ms</span>}
                         </div>
                         <p className="font-bold text-white mt-0.5">{l.action}</p>
-                        {l.response && (
+                        {l.response != null && (
                           <pre className="mt-1 p-1 bg-black/40 rounded text-[9px] overflow-x-auto text-neutral-400">
                             {JSON.stringify(l.response, null, 2)}
                           </pre>

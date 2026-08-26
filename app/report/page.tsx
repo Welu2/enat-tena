@@ -7,7 +7,7 @@ import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { userService } from "@/services/user.service";
 import { summaryService } from "@/services/summary.service";
-import { UserProfile, ClinicianSummaryResponse, FoodGroup } from "@/types/api";
+import { UserProfile, ClinicianSummaryResponse, FoodGroup, SummaryDangerSign, SummarySymptom } from "@/types/api";
 import {
   QrCode,
   Share2,
@@ -378,7 +378,7 @@ export default function ReportPage() {
               </p>
             ) : (
               <div className="space-y-1.5 pt-1">
-                {dangerSigns.map((ds: any, idx: number) => (
+                {dangerSigns.map((ds: SummaryDangerSign, idx: number) => (
                   <div
                     key={idx}
                     className="p-3 rounded-2xl bg-red-50/80 border border-red-200 flex items-center justify-between"
@@ -418,7 +418,7 @@ export default function ReportPage() {
               </p>
             ) : (
               <div className="space-y-2">
-                {recordedSymptoms.map((s: any, idx: number) => (
+                {recordedSymptoms.map((s: SummarySymptom, idx: number) => (
                   <div
                     key={idx}
                     className="p-3 rounded-2xl bg-[#FAF7F2] border border-[#E8E1D5] flex items-center justify-between"

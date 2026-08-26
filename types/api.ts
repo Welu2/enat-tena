@@ -244,6 +244,9 @@ export interface SummaryDangerSign {
   raw_text: string;
   severity?: string;
   category?: string | null;
+  category_display?: string | null;
+  category_display_en?: string | null;
+  duration?: { value: number | null; unit: string };
 }
 
 export interface SummarySymptom {
