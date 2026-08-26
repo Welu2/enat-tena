@@ -1,58 +1,61 @@
+import { CheckInStage } from "@/types/api";
+
 export interface StagePromptConfig {
-  am: string;
-  en: string;
   categoryAm: string;
   categoryEn: string;
+  defaultPromptAm: string;
+  defaultPromptEn: string;
 }
 
 export const CHECKIN_PROMPTS: Record<string, StagePromptConfig> = {
   symptoms: {
-    am: "ዛሬ ምን ዓይነት የጤና ስሜት ወይም ህመም አጋጠመዎት?",
-    en: "How are you feeling today? Any symptoms or discomfort?",
-    categoryAm: "የጤና ስሜት / ምልክቶች",
-    categoryEn: "SYMPTOMS",
+    categoryAm: "የአደጋ ምልክቶች እና ህመም",
+    categoryEn: "DANGER SIGNS & SYMPTOMS",
+    defaultPromptAm:
+      "ዛሬ ጽኑ ራስ ምታት፣ የዓይን ብዥታ፣ ደም መፍሰስ፣ ፈሳሽ መፍሰስ ወይም ከፍተኛ የሆድ ህመም ተሰምቶዎታል?",
+    defaultPromptEn:
+      "Did you experience any severe headache, blurred vision, vaginal bleeding, fluid leakage, or abdominal pain today?",
   },
   food: {
-    am: "ዛሬ ምን ምን ምግቦችን ተመገቡ?",
-    en: "What meals or foods did you eat today?",
-    categoryAm: "የምግብ መዝገብ",
-    categoryEn: "FOOD",
+    categoryAm: "የተመጣጠነ ምግብ እና አመጋገብ",
+    categoryEn: "NUTRITION & DIET",
+    defaultPromptAm:
+      "ዛሬ ምን ምን አይነት ምግቦችን ተመገቡ? ቢያንስ አንድ ተጨማሪ የተመጣጠነ ምግብ ወስደዋል?",
+    defaultPromptEn:
+      "What foods did you eat today? Did you have an additional nutrient-dense meal?",
   },
   supplement: {
-    am: "ዛሬ የታዘዘልዎትን መድሃኒት ወስደዋል?",
-    en: "Did you take your prescribed supplement today?",
-    categoryAm: "የመድሃኒት አወሳሰድ",
-    categoryEn: "SUPPLEMENT",
+    categoryAm: "የቅድመ ወሊድ እንክብሎች",
+    categoryEn: "PRENATAL SUPPLEMENTS",
+    defaultPromptAm:
+      "የዛሬውን የብረት እና ፎሊክ አሲድ (IFA) ወይም የካልሲየም እንክብል ወስደዋል?",
+    defaultPromptEn:
+      "Did you take your prescribed daily Iron-Folic Acid (IFA) or Calcium supplement today?",
   },
   closing: {
-    am: "ሌላ ሊነግሩን የሚፈልጉት ማንኛውም የጤና ስሜት ወይም ጥያቄ አለዎት?",
-    en: "Is there anything else you would like to share or ask?",
-    categoryAm: "ተጨማሪ መረጃ",
-    categoryEn: "CLOSING",
-  },
-  other: {
-    am: "ሌላ ሊነግሩን የሚፈልጉት ማንኛውም የጤና ስሜት ወይም ጥያቄ አለዎት?",
-    en: "Is there anything else you would like to share or ask?",
-    categoryAm: "ተጨማሪ መረጃ",
-    categoryEn: "CLOSING",
+    categoryAm: "አጠቃላይ ስሜት እና ጥያቄዎች",
+    categoryEn: "CLOSING & QUESTIONS",
+    defaultPromptAm:
+      "ሌላ የሚያስጨንቅዎት ማንኛውም የጤና ለውጥ፣ ህመም ወይም ጥያቄ አለዎት?",
+    defaultPromptEn:
+      "Do you have any other questions, concerns, or symptoms you would like to report?",
   },
 };
 
 export function resolveActivePrompt(
   stage: string,
   lang: string,
-  promptAm?: string | null,
-  t?: Record<string, string>
+  backendPromptAm?: string,
+  localizedDict?: Record<string, string>
 ): string {
-  if (lang === "am" && promptAm?.trim()) {
-    return promptAm.trim();
+  const config = CHECKIN_PROMPTS[stage] || CHECKIN_PROMPTS.symptoms;
+
+  if (lang === "en") {
+    if (stage === "symptoms") return localizedDict?.symptomsQuestion || config.defaultPromptEn;
+    if (stage === "food") return localizedDict?.foodQuestion || config.defaultPromptEn;
+    if (stage === "supplement") return localizedDict?.supplementsCheckinQuestion || config.defaultPromptEn;
+    return localizedDict?.otherQuestion || config.defaultPromptEn;
   }
 
-  const stageConfig = CHECKIN_PROMPTS[stage] || CHECKIN_PROMPTS.symptoms;
-
-  if (lang === "am") {
-    return stageConfig.am;
-  }
-
-  return t?.[`${stage}Prompt`] || stageConfig.en;
+  return backendPromptAm || config.defaultPromptAm;
 }

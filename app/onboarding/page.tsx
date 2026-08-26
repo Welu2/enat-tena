@@ -1,165 +1,206 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
-import { submitOnboardingData } from "@/lib/api";
-import { useTTSAudio } from "@/hooks/useTTSAudio";
+import { getOnboardingText } from "@/lib/translations/onboarding";
+import { OnboardingState } from "./types";
 import { StepProgress } from "./components/StepProgress";
-import { StepSupplements } from "./components/StepSupplements";
-import { StepAppointment } from "./components/StepAppointment";
-import { StepMicrophone } from "./components/StepMicrophone";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { StepDatingDemographics } from "./components/StepDatingDemographics";
+import { StepObstetricHistory } from "./components/StepObstetricHistory";
+import { StepMedicalHistory } from "./components/StepMedicalHistory";
+import { StepSupplementsAndMic } from "./components/StepSupplementsAndMic";
+import { userService } from "@/services/user.service";
+import { apiClient } from "@/lib/api-client";
+import { OnboardingPayload } from "@/types/api";
+import { AlertCircle, CheckCircle2, Loader2, Volume2, VolumeX } from "lucide-react";
 
 interface ToastNotification {
   type: "success" | "error";
   message: string;
 }
 
-const STEP_AUDIO_PROMPTS: Record<number, { am: string; en: string }> = {
-  1: {
-    am: "በእርግዝና ወቅት የሚወስዱት መድሃኒት አለ? ካለዎት ይምረጡ።",
-    en: "Are you currently taking any prenatal supplements? Please select any that apply.",
-  },
-  2: {
-    am: "ቀጣይ የቅድመ ወሊድ የህክምና ቀጠሮ አለዎት? ካለዎት ቀኑን ይምረጡ።",
-    en: "Do you have an upcoming Antenatal Care appointment? If yes, please select the date.",
-  },
-  3: {
-    am: "በድምፅዎ መረጃዎችን በቀላሉ ለመመዝገብ እባክዎ የማይክሮፎን ፈቃድ ይስጡ።",
-    en: "To record your check-ins by voice, please allow microphone access.",
-  },
-};
-
 export default function OnboardingPage() {
   const router = useRouter();
-  const { lang, t } = useLanguage();
-  const { playingAudioKey, playTTS, stopTTS } = useTTSAudio(lang);
+  const { lang } = useLanguage();
+  const isAm = lang === "am";
+  const t = getOnboardingText(lang);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [toast, setToast] = useState<ToastNotification | null>(null);
 
-  // Form State
-  const [takingSupplements, setTakingSupplements] = useState(true);
-  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([
-    "Iron",
-  ]);
-  const [otherSupplement, setOtherSupplement] = useState("");
-  const [hasAppointment, setHasAppointment] = useState(true);
-  const [appointmentDate, setAppointmentDate] = useState("2026-09-04");
-  const [micState, setMicState] = useState<"prompt" | "granted" | "denied">(
-    "prompt"
-  );
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const isPlayingThisStep = playingAudioKey === `step_${step}`;
+  const [formData, setFormData] = useState<OnboardingState>({
+    age: "",
+    area: "urban",
+    hospital: "",
+    datingMethod: "lnmp",
+    lnmpDate: "",
+    manualWeeks: "",
+    manualDays: "",
+    ultrasoundDate: "",
+    ultrasoundWeeks: "",
+    calculatedStatus: null,
+    totalPregnancies: "",
+    liveBirths: "",
+    hadCSection: false,
+    childPassedAway: false,
+    pastComplications: [],
+    knownConditions: [],
+    customMedicalCondition: "",
+    malariaEndemicArea: false,
+    currentMedications: "",
+    takingSupplements: true,
+    selectedSupplements: ["iron & folic acid", "calcium"],
+    micState: "prompt",
+  });
 
-  const triggerStepAudio = useCallback(
-    (targetStep: number) => {
-      const promptObj = STEP_AUDIO_PROMPTS[targetStep];
-      if (!promptObj) return;
-      const textToRead = lang === "am" ? promptObj.am : promptObj.en;
-      playTTS(textToRead, `step_${targetStep}`);
-    },
-    [lang, playTTS]
-  );
-
-  useEffect(() => {
-    triggerStepAudio(step);
-    return () => {
-      stopTTS();
-    };
-  }, [step, triggerStepAudio, stopTTS]);
-
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      router.replace("/signup");
-    }
-  }, [router]);
-
-  const toggleSupplement = (item: string) => {
-    setSelectedSupplements((prev) =>
-      prev.includes(item) ? prev.filter((s) => s !== item) : [...prev, item]
-    );
+  const updateFormData = (fields: Partial<OnboardingState>) => {
+    setFormData((prev) => ({ ...prev, ...fields }));
   };
 
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (typeof window !== "undefined") {
+      window.speechSynthesis?.cancel();
+    }
+    setIsPlayingAudio(false);
+    setIsLoadingAudio(false);
+  }, []);
+
+  // Use Backend Addis AI TTS for native Amharic voice synthesis
+  const triggerStepAudio = useCallback(
+    (targetStep: 1 | 2 | 3 | 4) => {
+      stopAudio();
+
+      const promptText = t.audioPrompts[targetStep];
+      if (!promptText) return;
+
+      setIsLoadingAudio(true);
+
+      // Stream MP3 directly from backend TTS endpoint
+      const ttsUrl = apiClient.getFullUrl(`/tts?text=${encodeURIComponent(promptText)}`);
+      const audio = new Audio(ttsUrl);
+      audioRef.current = audio;
+
+      audio.oncanplaythrough = () => {
+        setIsLoadingAudio(false);
+        setIsPlayingAudio(true);
+        audio.play().catch(() => {
+          setIsPlayingAudio(false);
+        });
+      };
+
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        audioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setIsLoadingAudio(false);
+        setIsPlayingAudio(false);
+
+        // Fallback to Web Speech API only if English
+        if (!isAm && "speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(promptText);
+          utterance.lang = "en-US";
+          utterance.rate = 0.9;
+          utterance.onstart = () => setIsPlayingAudio(true);
+          utterance.onend = () => setIsPlayingAudio(false);
+          utterance.onerror = () => setIsPlayingAudio(false);
+          window.speechSynthesis.speak(utterance);
+        }
+      };
+    },
+    [t, isAm, stopAudio]
+  );
+
+  // Clean up audio on unmount or step changes
+  useEffect(() => {
+    return () => stopAudio();
+  }, [step, stopAudio]);
+
   const handleNext = () => {
-    stopTTS();
-    setStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
+    stopAudio();
+    setToast(null);
+
+    if (step === 1) {
+      if (!formData.age || Number(formData.age) < 12 || Number(formData.age) > 60) {
+        setToast({ type: "error", message: t.validation.invalidAge });
+        return;
+      }
+      if (formData.datingMethod === "lnmp" && !formData.lnmpDate) {
+        setToast({ type: "error", message: t.validation.missingLnmpDate });
+        return;
+      }
+      if (formData.datingMethod === "manual" && !formData.manualWeeks) {
+        setToast({ type: "error", message: t.validation.missingManualWeeks });
+        return;
+      }
+    }
+
+    setStep((prev) => (prev < 4 ? ((prev + 1) as 1 | 2 | 3 | 4) : prev));
   };
 
   const handleBack = () => {
-    stopTTS();
+    stopAudio();
     if (step > 1) {
-      setStep((prev) => (prev - 1) as 1 | 2 | 3);
+      setStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
     } else {
-      router.push("/signup");
-    }
-  };
-
-  const handleToggleReadout = () => {
-    if (isPlayingThisStep) {
-      stopTTS();
-    } else {
-      triggerStepAudio(step);
+      router.push("/login");
     }
   };
 
   const finalizeOnboarding = async (micGranted: boolean) => {
-    stopTTS();
+    stopAudio();
     setIsSubmitting(true);
     setToast(null);
 
     try {
-      const supplementsToSave = takingSupplements
-        ? [...selectedSupplements, otherSupplement.trim()].filter(Boolean)
-        : [];
+      const payload: OnboardingPayload = {
+        age: Number(formData.age) || 24,
+        area: formData.area,
+        pregnancy_counting_method: formData.datingMethod,
+        lnmp_date: formData.datingMethod === "lnmp" ? formData.lnmpDate : undefined,
+        manual_gestational_weeks:
+          formData.datingMethod === "manual" ? Number(formData.manualWeeks) : undefined,
+        manual_gestational_days:
+          formData.datingMethod === "manual" ? Number(formData.manualDays) || 0 : undefined,
+        total_pregnancies: Number(formData.totalPregnancies) || 1,
+        live_births: Number(formData.liveBirths) || 0,
+        had_c_section: formData.hadCSection,
+        child_passed_away: formData.childPassedAway,
+        past_pregnancy_complications: formData.pastComplications,
+        known_medical_conditions: formData.knownConditions,
+        custom_medical_condition: formData.customMedicalCondition || undefined,
+        malaria_endemic_area: formData.malariaEndemicArea,
+        current_medications: formData.currentMedications || undefined,
+        supplements: formData.takingSupplements ? formData.selectedSupplements : [],
+        hospital: formData.hospital || undefined,
+      };
 
-      await submitOnboardingData({
-        supplements: supplementsToSave,
-        appointmentDate:
-          hasAppointment && appointmentDate ? appointmentDate : undefined,
-        reminderLeadDays: 2,
-      });
+      await userService.submitOnboarding(payload);
 
-      if (hasAppointment && appointmentDate) {
-        localStorage.setItem("appointment_date", appointmentDate);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mic_permission", micGranted ? "granted" : "skipped");
       }
-      localStorage.setItem(
-        "mic_permission",
-        micGranted ? "granted" : "skipped"
-      );
 
-      setToast({
-        type: "success",
-        message:
-          lang === "am"
-            ? "ምዝገባው ተጠናቋል! ወደ መነሻ ገጽ በማምራት ላይ..."
-            : "Setup complete! Redirecting to home...",
-      });
-
-      setTimeout(() => {
-        router.replace("/home");
-      }, 700);
+      setToast({ type: "success", message: t.toasts.success });
+      setTimeout(() => router.replace("/home"), 700);
     } catch (err: unknown) {
-      const errorMsg =
-        err instanceof Error
-          ? err.message
-          : lang === "am"
-          ? "መረጃውን ማስቀመጥ አልተሳካም። እባክዎ እንደገና ይሞክሩ።"
-          : "Failed to save settings. Please try again.";
-
+      const errorText = err instanceof Error ? err.message : "";
       setToast({
         type: "error",
-        message: errorMsg,
+        message: errorText || t.toasts.error,
       });
       setIsSubmitting(false);
     }
@@ -167,147 +208,125 @@ export default function OnboardingPage() {
 
   const requestMicAccess = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
-      setMicState("granted");
-      await finalizeOnboarding(true);
+      if (navigator?.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        updateFormData({ micState: "granted" });
+        await finalizeOnboarding(true);
+      } else {
+        await finalizeOnboarding(true);
+      }
     } catch {
-      setMicState("denied");
+      updateFormData({ micState: "denied" });
       await finalizeOnboarding(false);
     }
   };
 
   return (
-    <main className="flex-1 flex flex-col justify-between px-6 sm:px-7 pt-12 sm:pt-16 pb-7 relative min-h-dvh max-w-lg mx-auto w-full select-none">
-      {/* Floating Notification */}
-      {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-in slide-in-from-top-4 duration-300">
-          <div
-            className={`p-4 rounded-2xl border shadow-lg flex items-center gap-3 backdrop-blur-md ${
-              toast.type === "success"
-                ? "bg-[#F0F7F3]/95 border-[#C8E1D3] text-brand-green"
-                : "bg-[#FDF2F2]/95 border-[#F5C6C6] text-red-700"
-            }`}
-          >
-            {toast.type === "success" ? (
-              <CheckCircle2
-                size={18}
-                className="flex-shrink-0 text-brand-green"
-              />
-            ) : (
-              <AlertCircle size={18} className="flex-shrink-0 text-red-600" />
-            )}
-            <p className="text-xs font-semibold leading-snug">
-              {toast.message}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <Header showBack={true} onBack={handleBack} />
-
-      <div className="flex-1 flex flex-col justify-between mt-4">
-        <div className="space-y-4">
-          <StepProgress currentStep={step} />
-
-          {/* Explicit Read-Aloud Action Button */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleToggleReadout}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                isPlayingThisStep
-                  ? "bg-brand-green text-white border-brand-green shadow-sm animate-pulse"
-                  : "bg-[#F4EFE6] text-brand-text border-gray-200 hover:bg-[#EAE3D6]"
+    <div className="min-h-dvh w-full bg-[#FAF7F2] text-[#2C2723] flex justify-center">
+      <main className="w-full max-w-md flex flex-col justify-between p-5 pb-7 font-sans select-none min-h-dvh">
+        {toast && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-in slide-in-from-top-4 duration-300">
+            <div
+              className={`p-4 rounded-2xl border shadow-lg flex items-center gap-3 backdrop-blur-md ${
+                toast.type === "success"
+                  ? "bg-[#F0F7F3]/95 border-[#C8E1D3] text-[#2D6A4F]"
+                  : "bg-[#FDF2F2]/95 border-[#F5C6C6] text-red-700"
               }`}
             >
-              {isPlayingThisStep ? (
-                <>
-                  <VolumeX size={15} />
-                  <span>{lang === "am" ? "ድምጽ አቁም" : "Stop reading"}</span>
-                </>
+              {toast.type === "success" ? (
+                <CheckCircle2 size={18} className="flex-shrink-0 text-[#2D6A4F]" />
               ) : (
-                <>
-                  <Volume2 size={15} className="text-brand-green" />
-                  <span>{lang === "am" ? "ጥያቄውን አንብብልኝ" : "Read aloud"}</span>
-                </>
+                <AlertCircle size={18} className="flex-shrink-0 text-red-600" />
               )}
-            </button>
+              <p className="text-xs font-semibold leading-snug">{toast.message}</p>
+            </div>
+          </div>
+        )}
+
+        <Header showBack={true} onBack={handleBack} />
+
+        <div className="flex-1 flex flex-col justify-between mt-3 space-y-4">
+          <div className="space-y-4">
+            <StepProgress currentStep={step} />
+
+            {/* Read Aloud Button */}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => (isPlayingAudio ? stopAudio() : triggerStepAudio(step))}
+                disabled={isLoadingAudio}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                  isPlayingAudio
+                    ? "bg-[#2D6A4F] text-white border-[#2D6A4F] animate-pulse"
+                    : "bg-[#F4EFE6] text-[#2C2723] border-gray-200 hover:bg-neutral-100"
+                }`}
+              >
+                {isLoadingAudio ? (
+                  <Loader2 size={14} className="animate-spin text-[#2D6A4F]" />
+                ) : isPlayingAudio ? (
+                  <VolumeX size={14} />
+                ) : (
+                  <Volume2 size={14} className="text-[#2D6A4F]" />
+                )}
+                <span>
+                  {isLoadingAudio
+                    ? isAm ? "በማዘጋጀት ላይ..." : "Loading voice..."
+                    : isPlayingAudio
+                    ? t.voiceReader.stop
+                    : t.voiceReader.readAloud}
+                </span>
+              </button>
+            </div>
+
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs">
+              {step === 1 && <StepDatingDemographics data={formData} updateData={updateFormData} />}
+              {step === 2 && <StepObstetricHistory data={formData} updateData={updateFormData} />}
+              {step === 3 && <StepMedicalHistory data={formData} updateData={updateFormData} />}
+              {step === 4 && <StepSupplementsAndMic data={formData} updateData={updateFormData} />}
+            </div>
           </div>
 
-          {step === 1 && (
-            <StepSupplements
-              takingSupplements={takingSupplements}
-              setTakingSupplements={setTakingSupplements}
-              selectedSupplements={selectedSupplements}
-              toggleSupplement={toggleSupplement}
-              otherSupplement={otherSupplement}
-              setOtherSupplement={setOtherSupplement}
-              onNoAnswer={handleNext}
-            />
-          )}
-
-          {step === 2 && (
-            <StepAppointment
-              hasAppointment={hasAppointment}
-              setHasAppointment={setHasAppointment}
-              appointmentDate={appointmentDate}
-              setAppointmentDate={setAppointmentDate}
-              onNoAnswer={handleNext}
-            />
-          )}
-
-          {step === 3 && <StepMicrophone micState={micState} />}
-        </div>
-
-        {/* Action Controls */}
-        <div className="space-y-3 pt-6">
-          {step < 3 ? (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="w-full min-h-[50px] py-3.5 rounded-2xl bg-brand-green hover:bg-brand-green-hover text-white font-semibold text-base shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-            >
-              {t.continue}
-            </button>
-          ) : (
-            <>
-              {micState !== "denied" && (
+          <div className="space-y-2 pt-4">
+            {step < 4 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="w-full min-h-[48px] py-3.5 rounded-2xl bg-[#2D6A4F] hover:bg-[#1E4D38] text-white font-bold text-sm shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+              >
+                {t.actions.continue}
+              </button>
+            ) : (
+              <>
                 <button
                   type="button"
                   disabled={isSubmitting}
                   onClick={requestMicAccess}
-                  className="w-full min-h-[50px] py-3.5 rounded-2xl bg-brand-green hover:bg-brand-green-hover text-white font-semibold text-base shadow-sm active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full min-h-[48px] py-3.5 rounded-2xl bg-[#2D6A4F] hover:bg-[#1E4D38] text-white font-bold text-sm shadow-xs active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 size={18} className="animate-spin" />
-                      <span>
-                        {lang === "am" ? "በማስቀመጥ ላይ..." : "Saving..."}
-                      </span>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>{t.actions.saving}</span>
                     </>
                   ) : (
-                    t.allowMic
+                    <span>{t.actions.allowMic}</span>
                   )}
                 </button>
-              )}
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => finalizeOnboarding(false)}
-                className="w-full min-h-[50px] py-3.5 rounded-2xl bg-[#E2DBD0] hover:bg-[#D8D0C3] text-brand-text font-semibold text-base active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  t.skipForNow
-                )}
-              </button>
-            </>
-          )}
+
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => finalizeOnboarding(false)}
+                  className="w-full min-h-[44px] py-2.5 rounded-2xl bg-[#E8E1D5] hover:bg-[#D8D0C3] text-[#2C2723] font-semibold text-xs active:scale-[0.98] transition-all disabled:opacity-60 cursor-pointer"
+                >
+                  {t.actions.skipVoice}
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

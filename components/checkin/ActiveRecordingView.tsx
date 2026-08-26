@@ -1,6 +1,8 @@
-import { VoiceMicButton } from "../../app/checkin/components/VoiceMicButton";
-import { ManualTextInput } from "./ManualTextInput";
-import { Loader2, Keyboard } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { VoiceMicButton } from "@/app/checkin/components/VoiceMicButton";
+import { Loader2, Keyboard, X } from "lucide-react";
 
 interface ActiveRecordingViewProps {
   isRecording: boolean;
@@ -12,7 +14,7 @@ interface ActiveRecordingViewProps {
   onShowManual: () => void;
   onHideManual: () => void;
   onManualSubmit: (text: string) => Promise<void>;
-  onCompleteStage: () => Promise<void>;
+  onCompleteStage: () => void;
 }
 
 export function ActiveRecordingView({
@@ -27,9 +29,13 @@ export function ActiveRecordingView({
   onManualSubmit,
   onCompleteStage,
 }: ActiveRecordingViewProps) {
-  const loadingText = language === "am"
-    ? "ድምጹን በመተርጎም እና በመመርመር ላይ..."
-    : "Processing voice...";
+  const [manualText, setManualText] = useState("");
+
+  const handleSubmit = async () => {
+    if (!manualText.trim()) return;
+    await onManualSubmit(manualText);
+    setManualText("");
+  };
 
   return (
     <div className="flex-1 flex flex-col justify-between pt-6">
@@ -42,18 +48,52 @@ export function ActiveRecordingView({
           {isProcessing && (
             <div className="flex items-center gap-2 mt-4 text-xs font-semibold text-brand-green">
               <Loader2 size={16} className="animate-spin" />
-              <span>{loadingText}</span>
+              <span>
+                {language === "am"
+                  ? "ድምጹን በመተርጎም እና በመመርመር ላይ..."
+                  : "Analyzing clinical voice data..."}
+              </span>
             </div>
           )}
         </div>
       ) : (
-        <ManualTextInput
-          language={language}
-          onClose={onHideManual}
-          onSubmit={onManualSubmit}
-        />
+        <div className="my-auto space-y-3 p-4 bg-[#FAF7F2] border border-[#E4DCD0] rounded-3xl animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-brand-text uppercase tracking-wider">
+              {language === "am" ? "በጽሑፍ ያስገቡ" : "Type your entry"}
+            </h4>
+            <button
+              type="button"
+              onClick={onHideManual}
+              className="text-brand-subtle hover:text-brand-text cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <textarea
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+            placeholder={
+              language === "am"
+                ? "የተሰማዎትን ወይም የተመገቡትን እዚህ ይጻፉ..."
+                : "Describe what you experienced or consumed..."
+            }
+            className="w-full h-24 p-3 text-xs font-medium bg-white border border-[#D4C8B8] rounded-2xl focus:outline-hidden focus:border-brand-green resize-none"
+          />
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!manualText.trim()}
+            className="w-full py-2.5 rounded-xl bg-brand-green text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+          >
+            {language === "am" ? "መዝግብ" : "Add Entry"}
+          </button>
+        </div>
       )}
 
+      {/* Footer Navigation */}
       <div className="space-y-2 pt-4">
         {!showManualInput && (
           <button

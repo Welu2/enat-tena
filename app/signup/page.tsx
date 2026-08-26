@@ -33,16 +33,12 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [toast, setToast] = useState<ToastNotification | null>(null);
 
-  // =========================================================
-  // Validation Logic
-  // =========================================================
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // 1. Full Name Validation
     if (!trimmedName) {
       newErrors.fullName =
         lang === "am" ? "እባክዎ ሙሉ ስምዎን ያስገቡ" : "Full name is required";
@@ -53,7 +49,6 @@ export default function SignupPage() {
           : "Full name must be at least 2 characters";
     }
 
-    // 2. Email Validation
     if (!trimmedEmail) {
       newErrors.email =
         lang === "am" ? "እባክዎ ኢሜይልዎን ያስገቡ" : "Email address is required";
@@ -64,7 +59,6 @@ export default function SignupPage() {
           : "Please enter a valid email address (e.g. sara@example.com)";
     }
 
-    // 3. Password Validation
     if (!password) {
       newErrors.password =
         lang === "am" ? "እባክዎ የይለፍ ቃልዎን ያስገቡ" : "Password is required";
@@ -88,19 +82,14 @@ export default function SignupPage() {
     setIsLoading(true);
     setIsSlowResponse(false);
 
-    // If Render cold start takes longer than 4 seconds, update button text
     const slowTimer = setTimeout(() => {
       setIsSlowResponse(true);
     }, 4000);
 
-    try {
-      // Connect to FastAPI Backend (POST /auth/signup)
-      const data = await signupWithFastAPI(email.trim().toLowerCase(), password);
+    const normalizedEmail = email.trim().toLowerCase();
 
-      // Store auth credentials and local display name
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("user_id", data.user_id);
-      localStorage.setItem("user_name", fullName.trim());
+    try {
+      await signupWithFastAPI(normalizedEmail, password, fullName.trim());
 
       setToast({
         type: "success",
@@ -110,19 +99,21 @@ export default function SignupPage() {
             : "Account created successfully! Preparing onboarding...",
       });
 
-      // Brief delay for the toast before routing
       setTimeout(() => {
         router.push("/onboarding");
       }, 700);
     } catch (err: unknown) {
       const errorText = err instanceof Error ? err.message : "";
-      
+
       let userFriendlyMsg =
         lang === "am"
           ? "ምዝገባው አልተሳካም። እባክዎ መረጃዎን እንደገና ያረጋግጡ።"
           : "Registration failed. Please verify your information and try again.";
 
-      if (errorText.toLowerCase().includes("already registered") || errorText.toLowerCase().includes("exists")) {
+      if (
+        errorText.toLowerCase().includes("already registered") ||
+        errorText.toLowerCase().includes("exists")
+      ) {
         userFriendlyMsg =
           lang === "am"
             ? "ይህ ኢሜይል አስቀድሞ ተመዝግቧል። እባክዎ ይግቡ።"
@@ -142,7 +133,6 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-dvh w-full flex flex-col justify-between p-6 sm:p-8 lg:p-10 relative select-none">
-      {/* Floating Toast Notification */}
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-in slide-in-from-top-4 duration-300">
           <div
@@ -162,12 +152,10 @@ export default function SignupPage() {
         </div>
       )}
 
-      {/* Header */}
       <div className="w-full max-w-md mx-auto flex justify-end">
         <Header />
       </div>
 
-      {/* Main Card */}
       <div className="w-full max-w-md mx-auto my-auto py-6 sm:py-8 sm:px-8 sm:bg-brand-card sm:rounded-3xl sm:shadow-xs sm:border sm:border-[#E4DCD0]/60">
         <div className="flex items-center gap-3.5 mb-6">
           <LogoBadge size="md" />
@@ -182,7 +170,6 @@ export default function SignupPage() {
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {/* Full Name */}
           <div className="space-y-1.5">
             <label className="block text-xs sm:text-sm font-bold text-brand-text">
               {t.fullName}
@@ -211,7 +198,6 @@ export default function SignupPage() {
             )}
           </div>
 
-          {/* Email */}
           <div className="space-y-1.5">
             <label className="block text-xs sm:text-sm font-bold text-brand-text">
               {lang === "am" ? "ኢሜይል" : "Email"}
@@ -240,7 +226,6 @@ export default function SignupPage() {
             )}
           </div>
 
-          {/* Password */}
           <div className="space-y-1.5">
             <label className="block text-xs sm:text-sm font-bold text-brand-text">
               {t.password}
@@ -279,7 +264,6 @@ export default function SignupPage() {
             )}
           </div>
 
-          {/* Submit Button with Live Server Wake-up Notice */}
           <button
             type="submit"
             disabled={isLoading}
@@ -305,7 +289,6 @@ export default function SignupPage() {
         </form>
       </div>
 
-      {/* Bottom Login Link */}
       <div className="w-full max-w-md mx-auto text-center text-xs sm:text-sm text-brand-subtle py-4">
         {t.haveAccount}{" "}
         <Link href="/login" className="text-brand-green font-bold hover:underline ml-1">

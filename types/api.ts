@@ -1,9 +1,6 @@
-// types/api.ts
-
-// =========================================================
-// 1. Authentication & Errors
-// =========================================================
-
+// ==========================================
+// Authentication Types
+// ==========================================
 export interface AuthResponse {
   access_token: string;
   token_type: string;
@@ -11,186 +8,249 @@ export interface AuthResponse {
   email: string;
 }
 
-export interface ApiErrorResponse {
-  detail?: string | { msg: string; loc?: (string | number)[]; type?: string }[];
-  message?: string;
+export interface UserCredentials {
+  email: string;
+  password?: string;
 }
 
-// =========================================================
-// 2. User Profile & Settings (GET /users/me)
-// =========================================================
+export interface ResetPasswordPayload {
+  access_token: string;
+  new_password: string;
+}
 
-export interface SupplementItem {
+// ==========================================
+// User & Maternal Profile Types
+// ==========================================
+export type TrimesterKey = 'first_trimester' | 'second_trimester' | 'third_trimester';
+export type PregnancyCountingMethod = 'lnmp' | 'manual' | 'ultrasound';
+export type FoodGroup = 'grains' | 'proteins' | 'dairy' | 'fruits_and_vegetables';
+
+export interface TrimesterInfo {
+  number: number;
+  key: TrimesterKey;
+  name_en: string;
+  name_am: string;
+  week_range: string;
+}
+
+export interface GestationalAgeCalculation {
+  gestational_age_weeks: number;
+  gestational_age_days: number;
+  gestational_age_total_days: number;
+  formatted_age_am: string;
+  formatted_age_en: string;
+  trimester: TrimesterKey;
+  trimester_info: TrimesterInfo;
+  estimated_due_date: string;
+  effective_lnmp_date: string;
+  is_gestational_age_manual: boolean;
+  days_until_edd: number;
+}
+
+export interface Supplement {
   id: string;
-  user_id: string;
+  user_id?: string;
   name: string;
   active: boolean;
   reminder_enabled: boolean;
   reminder_time: string;
-  created_at: string;
+  created_at?: string;
 }
 
-export interface UserAppointment {
-  id: string;
-  user_id: string;
+export interface AncAppointment {
+  id?: string;
+  user_id?: string;
   appointment_date: string;
   reminder_lead_days: number;
-  last_summary_generated_at: string | null;
+  anc_contact_number?: number;
+  anc_contact_title?: string;
+  last_summary_generated_at?: string | null;
 }
-
-export interface ReminderNotification {
-  id: string;
-  user_id: string;
-  type: "supplement" | "appointment" | "report_generated";
-  message: string;
-  due_at: string;
-  dismissed: boolean;
-  created_at: string;
-}
-
 
 export interface UserProfile {
   id: string;
   email: string;
-  full_name?: string;
-  phone_number?: string;
-  next_appointment_date?: string | null;
-  created_at?: string;
-  supplements?: Array<any>;
-  appointment?: UserAppointment | null;
-  pending_reminders?: Array<any>;
+  created_at: string;
+  age?: number;
+  area?: 'urban' | 'rural';
+  pregnancy_counting_method: PregnancyCountingMethod;
+  lnmp_date?: string | null;
+  ultrasound_date?: string | null;
+  ultrasound_weeks?: number | null;
+  gestational_age_weeks: number;
+  gestational_age_days: number;
+  is_gestational_age_manual: boolean;
+  effective_lnmp_date?: string;
+  estimated_due_date: string;
+  trimester: TrimesterKey;
+  total_pregnancies?: number;
+  live_births?: number;
+  had_c_section?: boolean;
+  child_passed_away?: boolean;
+  past_pregnancy_complications?: string[];
+  known_medical_conditions?: string[];
+  custom_medical_condition?: string | null;
+  malaria_endemic_area?: boolean;
+  current_medications?: string | null;
+  hospital?: string;
+  onboarding_completed: boolean;
+  current_pregnancy_status: GestationalAgeCalculation;
+  supplements: Supplement[];
+  appointment?: AncAppointment | null;
+  pending_reminders?: any[];
 }
 
+export interface OnboardingPayload {
+  age: number;
+  area: 'urban' | 'rural';
+  pregnancy_counting_method: PregnancyCountingMethod;
+  lnmp_date?: string;
+  manual_gestational_weeks?: number;
+  manual_gestational_days?: number;
+  total_pregnancies?: number;
+  live_births?: number;
+  had_c_section?: boolean;
+  child_passed_away?: boolean;
+  past_pregnancy_complications?: string[];
+  known_medical_conditions?: string[];
+  custom_medical_condition?: string;
+  malaria_endemic_area?: boolean;
+  current_medications?: string;
+  supplements?: string[];
+  hospital?: string;
+}
 
-// =========================================================
-// 3. Voice Check-in Intake Workflow
-// =========================================================
+export interface AncScheduleContact {
+  contact_number: number;
+  trimester: TrimesterKey;
+  trimester_en?: string;
+  trimester_am?: string;
+  gestational_weeks: number;
+  gestational_label_en?: string;
+  gestational_label_am?: string;
+  title_en: string;
+  title_am: string;
+  target_date: string;
+  schedule_next_weeks: number | null;
+  current_gestational_weeks?: number;
+}
 
-export type CheckinStage = "symptoms" | "food" | "supplement" | "closing";
+export interface AncScheduleResponse {
+  current_gestational_age_weeks: number;
+  current_gestational_age_days: number;
+  effective_lnmp_date: string;
+  estimated_due_date: string;
+  next_anc_contact: AncScheduleContact;
+  all_contacts: AncScheduleContact[];
+}
 
-export interface CheckinStartResponse {
+// ==========================================
+// Voice Check-in Intake Types
+// ==========================================
+export type CheckInStage = 'symptoms' | 'food' | 'supplement' | 'closing';
+
+export interface PendingItem {
+  item_id: string;
+  raw_text: string;
+  category?: string | null;
+  duration?: {
+    value: number | null;
+    unit: string;
+  };
+  severity?: 'mild' | 'moderate' | 'severe';
+  danger_sign: boolean;
+  confirmed: boolean;
+  verification_phrase: string;
+  verification_audio_url?: string;
+}
+
+export interface StartCheckInResponse {
   session_id: string;
-  stage: CheckinStage;
+  stage: CheckInStage;
   question_prompt: string;
+  question_audio_url: string;
 }
 
-
-export interface CheckinRespondResponse {
+export interface RespondCheckInResponse {
   session_id: string;
-  stage: CheckinStage | string;
+  stage: CheckInStage;
   transcript: string;
   pending_items: PendingItem[];
 }
 
+export interface VerifyItemPayload {
+  item_id: string;
+  confirmed: boolean;
+  corrected_value?: Partial<PendingItem>;
+}
+
 export interface CompleteStageResponse {
   session_id: string;
-  stage_completed: string;
-  next_stage: CheckinStage | null;
+  stage_completed: CheckInStage;
+  next_stage: CheckInStage | null;
   question_prompt: string | null;
+  question_audio_url?: string | null;
   session_completed: boolean;
   danger_sign_triggered: boolean;
+  summary_text_am?: string;
+  summary_text_en?: string;
   check_in_id?: string;
 }
 
-// =========================================================
-// 4. Check-in History (GET /checkin/history)
-// =========================================================
-
-export interface CheckinHistoryItem {
+export interface CheckInHistoryItem {
   id: string;
   timestamp: string;
-  symptoms: Array<{
-    raw_text: string;
-    danger_sign: boolean;
-    confirmed: boolean;
-    severity?: string;
-  }>;
-  food_log: {
-    raw_text: string;
-    confirmed: boolean;
-  } | null;
-  supplement_check: {
-    supplement_name: string;
-    taken_today: boolean;
-    confirmed: boolean;
-  } | null;
-  closing_mentions?: string[];
+  symptoms: PendingItem[];
+  food_log: { raw_text: string; confirmed: boolean; food_groups?: FoodGroup[] };
+  supplement_check: { supplement_name: string; taken_today: boolean; confirmed: boolean };
+  closing_mentions: any[];
   danger_sign_triggered: boolean;
+  summary_text_am: string;
+  summary_text_en: string;
 }
 
-// =========================================================
-// 5. Clinician Summaries & Reports
-// =========================================================
-
-export interface ClinicianSummaryContent {
-  danger_signs: Array<
-    | {
-        raw_text?: string;
-        category?: string;
-        severity?: string;
-        date?: string;
-      }
-    | string
-  >;
-  symptoms_summary: Array<{
-    date?: string;
-    symptom?: string;
-    raw_text?: string;
-    severity?: string;
-  }>;
-  food_logs: Array<{
-    date?: string;
-    raw_text: string;
-  }>;
-  supplement_adherence: {
-    taken_days: number;
-    total_reported: number;
-    percentage: number;
-  };
-  patient_questions?: Array<{
-    question?: string;
-    raw_text?: string;
-  }>;
-}
-
-export interface ClinicianSummary {
+// ==========================================
+// Clinician Summary & Notification Types
+// ==========================================
+export interface ClinicianSummaryResponse {
   id: string;
   period_start: string;
   period_end: string;
   generated_at: string;
-  content_json: ClinicianSummaryContent;
+  anc_contact_number: number;
+  anc_contact_title: string;
+  anc_contact_title_am: string;
+  target_gestational_weeks: number;
+  content_json: {
+    anc_contact: Record<string, any>;
+    danger_signs: any[];
+    recorded_symptoms: any[];
+    food_logs: any[];
+    nutritional_variation: {
+      total_items_classified: number;
+      tracked_days: number;
+      percentages: Record<FoodGroup, number>;
+    };
+    supplement_adherence: {
+      taken_days: number;
+      tracked_days: number;
+      total_days_in_period: number;
+      percentage: number;
+    };
+    closing_mentions: any[];
+    muac_reminder: string;
+    provenance_note: string;
+  };
   share_link_slug: string;
-  qr_code_url?: string;
-}
-
-export interface CalendarLinkResponse {
-  google_calendar_url: string;
-  ical_download_url: string;
+  qr_code_url: string;
 }
 
 export interface AppNotification {
   id: string;
   user_id: string;
-  type: "supplement" | "appointment" | "report_generated";
+  type: 'supplement' | 'report_generated' | 'appointment';
   message: string;
   due_at: string;
   dismissed: boolean;
   created_at: string;
-}
-export interface PendingItem {
-  item_id: string;
-  raw_text: string;
-  confirmed: boolean;
-  stage?: string;
-  category?: string | null;
-  category_display?: string | null;
-  category_display_en?: string | null;
-  verification_phrase?: string | null;
-  verification_audio_url?: string | null;
-  severity?: string | null;
-  danger_sign?: boolean;
-  duration?: {
-    value: number | null;
-    unit: string;
-  } | null;
 }

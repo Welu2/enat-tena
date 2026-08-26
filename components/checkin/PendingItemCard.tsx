@@ -1,10 +1,10 @@
-import { PendingItem, CheckinStage } from "@/types/api";
+import { PendingItem, CheckInStage } from "@/types/api";
 import { ItemEditForm } from "./ItemEditForm";
 import { Volume2, VolumeX, Mic, Edit2, CheckCircle2 } from "lucide-react";
 
 interface PendingItemCardProps {
   item: PendingItem;
-  stage: CheckinStage;
+  stage: CheckInStage;
   language: string;
   isEditing: boolean;
   isRecording: boolean;

@@ -1,100 +1,36 @@
 // lib/dateUtils.ts
 
-export const AMHARIC_MONTHS = [
-  "መስከረም",
-  "ጥቅምት",
-  "ኅዳር",
-  "ታኅሣሥ",
-  "ጥር",
-  "የካቲት",
-  "መጋቢት",
-  "ሚያዝያ",
-  "ግንቦት",
-  "ሰኔ",
-  "ሐምሌ",
-  "ነሐሴ",
-  "ጳጉሜ",
-];
+export interface EthiopianDate {
+  year: number;
+  month: number;
+  day: number;
+}
 
-export const AMHARIC_WEEKDAYS = [
-  "እሑድ",
-  "ሰኞ",
-  "ማክሰኞ",
-  "ረቡዕ",
-  "ሐሙስ",
-  "ዓርብ",
-  "ቅዳሜ",
-];
+const AM_WEEKDAYS = ["እሁድ", "ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "አርብ", "ቅዳሜ"];
+const EN_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export const AMHARIC_WEEKDAYS_SHORT = [
-  "እሑድ",
-  "ሰኞ",
-  "ማክሰ",
-  "ረቡዕ",
-  "ሐሙስ",
-  "ዓርብ",
-  "ቅዳሜ",
-];
-
-export const ENGLISH_MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-export const ENGLISH_MONTHS_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-export const ENGLISH_WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-export const ENGLISH_WEEKDAYS_SHORT = [
-  "SUN",
-  "MON",
-  "TUE",
-  "WED",
-  "THU",
-  "FRI",
-  "SAT",
+const AM_MONTHS = [
+  "መስከረም", "ጥቅምት", "ኅዳር", "ታኅሣሥ", "ጥር", "የካቲት",
+  "መጋቢት", "ሚያዝያ", "ግንቦት", "ሰኔ", "ሐምሌ", "ነሐሴ", "ጳጉሜ"
 ];
 
 /**
- * Converts a Gregorian date to Ethiopian Calendar (Year, Month 1-13, Day)
+ * Converts a Gregorian Date to an Ethiopian Calendar date (Year, Month 1-13, Day 1-30).
  */
-export function toEthiopianDate(gregorianDate: Date) {
-  const gYear = gregorianDate.getFullYear();
-  const gMonth = gregorianDate.getMonth() + 1; // 1-12
-  const gDay = gregorianDate.getDate();
+export function toEthiopianDate(dateInput: Date | string | number): EthiopianDate {
+  const date = typeof dateInput === "object" && dateInput instanceof Date
+    ? dateInput
+    : new Date(dateInput);
 
-  // Julian Day Number Calculation
+  if (isNaN(date.getTime())) {
+    return { year: 2018, month: 1, day: 1 };
+  }
+
+  const gYear = date.getFullYear();
+  const gMonth = date.getMonth() + 1;
+  const gDay = date.getDate();
+
+  // Julian Day Number (JDN) calculation from Gregorian Date
   const a = Math.floor((14 - gMonth) / 12);
   const y = gYear + 4800 - a;
   const m = gMonth + 12 * a - 3;
@@ -107,64 +43,88 @@ export function toEthiopianDate(gregorianDate: Date) {
     Math.floor(y / 400) -
     32045;
 
-  // Convert JDN to Ethiopian Era
+  // Ethiopian calendar epoch offset in JDN
   const r = (jdn - 1723856) % 1461;
   const n = (r % 365) + 365 * Math.floor(r / 1460);
-  const ethYear =
-    4 * Math.floor((jdn - 1723856) / 1461) +
-    Math.floor(r / 365) -
-    Math.floor(r / 1460);
+
+  const ethYear = 4 * Math.floor((jdn - 1723856) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
   const ethMonth = Math.floor(n / 30) + 1;
   const ethDay = (n % 30) + 1;
 
   return {
     year: ethYear,
-    month: ethMonth, // 1 to 13
+    month: ethMonth,
     day: ethDay,
-    monthName: AMHARIC_MONTHS[ethMonth - 1],
-    weekdayName: AMHARIC_WEEKDAYS[gregorianDate.getDay()],
-    weekdayShort: AMHARIC_WEEKDAYS_SHORT[gregorianDate.getDay()],
   };
 }
 
+export interface FormattedDate {
+  /** Full formatted string, e.g. "Monday, Aug 26" or "ሰኞ፣ ነሐሴ 20" */
+  full: string;
+  /** Month name abbreviation, e.g. "Aug" or "ነሐሴ" */
+  month: string;
+  /** Day number as string, e.g. "26" */
+  dayNum: string;
+  /** Weekday name, e.g. "Monday" or "ሰኞ" */
+  dayName: string;
+}
+
 /**
- * Formats any Date object based on current selected language
+ * Safely formats any Date, timestamp string, or undefined value for bilingual display.
+ * Returns a structured object with full, month, dayNum, dayName properties.
  */
-export function formatSyncedDate(date: Date, lang: "am" | "en") {
+export function formatSyncedDate(
+  dateInput: Date | string | number | undefined | null,
+  lang: "am" | "en" = "am"
+): FormattedDate {
+  const fallback: FormattedDate = {
+    full: lang === "am" ? "ዛሬ" : "Today",
+    month: "",
+    dayNum: "",
+    dayName: "",
+  };
+
+  if (!dateInput) return fallback;
+
+  const date = typeof dateInput === "object" && dateInput instanceof Date
+    ? dateInput
+    : new Date(dateInput);
+
+  if (isNaN(date.getTime())) return fallback;
+
   const dayIndex = date.getDay();
 
   if (lang === "am") {
-    const eth = toEthiopianDate(date);
-    return {
-      full: `${eth.weekdayName}፣ ${eth.monthName} ${eth.day} ቀን ${eth.year} ዓ.ም`,
-      monthDay: `${eth.monthName} ${eth.day}`,
-      month: eth.monthName,
-      dayNum: String(eth.day),
-      dayName: eth.weekdayShort,
-      year: String(eth.year),
-    };
+    try {
+      const eth = toEthiopianDate(date);
+      const weekday = AM_WEEKDAYS[dayIndex] || "";
+      const monthName = AM_MONTHS[(eth.month || 1) - 1] || "";
+      const dayNum = String(eth.day || 1);
+      return {
+        full: `${weekday}፣ ${monthName} ${dayNum}`,
+        month: monthName,
+        dayNum,
+        dayName: weekday,
+      };
+    } catch {
+      const weekday = AM_WEEKDAYS[dayIndex] || "";
+      const dayNum = String(date.getDate());
+      return {
+        full: `${weekday}፣ ${dayNum}`,
+        month: "",
+        dayNum,
+        dayName: weekday,
+      };
+    }
   }
 
-  // English (Gregorian)
-  const gMonth = date.getMonth();
-  const gDay = date.getDate();
-  const gYear = date.getFullYear();
-
+  const weekday = EN_WEEKDAYS[dayIndex] || "";
+  const monthName = date.toLocaleString("en-US", { month: "short" });
+  const dayNum = String(date.getDate());
   return {
-    full: `${ENGLISH_WEEKDAYS[dayIndex]}, ${ENGLISH_MONTHS[gMonth]} ${gDay}, ${gYear}`,
-    monthDay: `${ENGLISH_MONTHS_SHORT[gMonth]} ${gDay}`,
-    month: ENGLISH_MONTHS_SHORT[gMonth],
-    dayNum: String(gDay),
-    dayName: ENGLISH_WEEKDAYS_SHORT[dayIndex],
-    year: String(gYear),
+    full: `${weekday}, ${monthName} ${dayNum}`,
+    month: monthName,
+    dayNum,
+    dayName: weekday,
   };
-}
-
-/**
- * Helper to get relative dates from today (-1 day, -2 days, etc.)
- */
-export function getRelativeDate(daysOffset: number = 0): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + daysOffset);
-  return d;
 }

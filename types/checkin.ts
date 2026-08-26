@@ -1,6 +1,7 @@
-import { CheckinStage, PendingItem } from "@/types/api";
+import { CheckInStage, PendingItem } from "@/types/api";
 
-export type { CheckinStage, PendingItem };
+export type { CheckInStage, PendingItem };
+
 
 export const STAGE_STEP_MAP: Record<string, 1 | 2 | 3 | 4> = {
   symptoms: 1,
@@ -11,14 +12,14 @@ export const STAGE_STEP_MAP: Record<string, 1 | 2 | 3 | 4> = {
   closing: 4,
 };
 
-export const STAGE_SEQUENCE: CheckinStage[] = [
+export const STAGE_SEQUENCE: CheckInStage[] = [
   "symptoms",
   "food",
   "supplement",
   "closing",
 ];
 
-export function normalizeStage(raw?: string | null): CheckinStage {
+export function normalizeStage(raw?: string | null): CheckInStage {
   const norm = raw?.toLowerCase().trim();
   if (
     norm === "supplement" ||
@@ -33,9 +34,9 @@ export function normalizeStage(raw?: string | null): CheckinStage {
 }
 
 export function getForcedNextStage(
-  current: CheckinStage,
+  current: CheckInStage,
   serverNext?: string | null
-): CheckinStage | null {
+): CheckInStage | null {
   if (current === "food" && serverNext === "closing") {
     return "supplement";
   }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "@/components/Header";
 import { LogoBadge } from "@/components/LogoBadge";
-import { forgotPassword } from "@/lib/api";
+import { authService } from "@/services/auth.service";
 import { Loader2, CheckCircle2, ArrowLeft, Mail, AlertCircle } from "lucide-react";
 
 export default function ForgotPasswordPage() {
@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
     setErrorMessage(null);
 
     try {
-      await forgotPassword(email.trim());
+      await authService.forgotPassword(email.trim());
       setIsSubmitted(true);
     } catch (err: unknown) {
       const error = err as Error;

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Check, X } from "lucide-react";
-import { CheckinStage } from "@/types/api";
+import { CheckInStage } from "@/types/api";
 
 interface ItemEditFormProps {
   initialText: string;
   initialSeverity: string;
-  stage: CheckinStage;
+  stage: CheckInStage;
   language: string;
   onCancel: () => void;
   onSave: (text: string, severity: string) => Promise<void>;

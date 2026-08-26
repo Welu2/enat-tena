@@ -1,6 +1,28 @@
 import { useRef } from "react";
 import { Calendar, ExternalLink, Download } from "lucide-react";
-import { openGoogleCalendar, downloadIcsCalendar } from "@/utils/calendar";
+import { userService } from "@/services/user.service";
+
+async function openGoogleCalendar(): Promise<boolean> {
+  try {
+    const links = await userService.getCalendarLinks();
+    if (!links?.google_calendar_url) return false;
+    window.open(links.google_calendar_url, "_blank", "noopener,noreferrer");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadIcsCalendar(): void {
+  const downloadUrl = userService.getICalDownloadUrl();
+  const anchor = document.createElement("a");
+  anchor.href = downloadUrl;
+  anchor.setAttribute("download", "appointment.ics");
+  anchor.target = "_blank";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+}
 
 interface AppointmentSectionProps {
   title: string;

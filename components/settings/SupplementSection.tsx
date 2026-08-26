@@ -1,11 +1,11 @@
 import { useState, KeyboardEvent } from "react";
 import { Pill, Trash2, Loader2, Plus } from "lucide-react";
-import { SupplementItem } from "@/types/api";
+import { Supplement } from "@/types/api";
 
 interface SupplementSectionProps {
   title: string;
   placeholderText: string;
-  supplements: SupplementItem[];
+  supplements: Supplement[];
   isSaving: boolean;
   onAdd: (name: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
