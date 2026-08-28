@@ -14,7 +14,14 @@ import { StepSupplementsAndMic } from "./components/StepSupplementsAndMic";
 import { userService } from "@/services/user.service";
 import { apiClient } from "@/lib/api-client";
 import { OnboardingPayload } from "@/types/api";
-import { AlertCircle, CheckCircle2, Loader2, Volume2, VolumeX } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  Loader2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 
 interface ToastNotification {
   type: "success" | "error";
@@ -244,10 +251,23 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        <Header showBack={true} onBack={handleBack} />
+        {/* Dedicated Top Navigation */}
+        <div className="flex items-center justify-between pt-1 pb-2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-1 text-xs font-bold text-[#2D6A4F] hover:text-[#1E4D38] p-1.5 -ml-1.5 rounded-xl hover:bg-black/5 transition-all cursor-pointer"
+          >
+            <ChevronLeft size={18} />
+            <span>{isAm ? "ተመለስ" : "Back"}</span>
+          </button>
 
-        <div className="flex-1 flex flex-col justify-between mt-3 space-y-4">
-          <div className="space-y-4">
+          <Header showBack={false} />
+        </div>
+
+        <div className="flex-1 flex flex-col justify-between space-y-4">
+          <div className="space-y-3.5">
+            {/* Step Progress Component */}
             <StepProgress currentStep={step} />
 
             {/* Read Aloud Button */}
@@ -279,6 +299,7 @@ export default function OnboardingPage() {
               </button>
             </div>
 
+            {/* Form Step Cards */}
             <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#E8E1D5] shadow-xs">
               {step === 1 && <StepDatingDemographics data={formData} updateData={updateFormData} />}
               {step === 2 && <StepObstetricHistory data={formData} updateData={updateFormData} />}
@@ -287,6 +308,7 @@ export default function OnboardingPage() {
             </div>
           </div>
 
+          {/* Action Buttons */}
           <div className="space-y-2 pt-4">
             {step < 4 ? (
               <button
