@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export interface UseVoiceRecorderReturn {
   isRecording: boolean;
@@ -9,7 +9,8 @@ export interface UseVoiceRecorderReturn {
   error: string | null;
 }
 
-export function useVoiceRecorder(): UseVoiceRecorderReturn {
+// Pass the maximum duration (in seconds) as an optional argument
+export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +106,13 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     setIsRecording(false);
     setRecordingTime(0);
   }, []);
+
+  // AUTOMATIC ENFORCEMENT
+  useEffect(() => {
+    if (isRecording && recordingTime >= maxDuration) {
+      stopRecording();
+    }
+  }, [isRecording, recordingTime, maxDuration, stopRecording]);
 
   return {
     isRecording,
