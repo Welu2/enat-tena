@@ -161,51 +161,54 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* Top Header */}
-        <header className="px-5 pt-4 pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#1F2937] tracking-tight">
-                {isAm ? "የክሊኒክ የጤና ሪፖርት" : "Clinician ANC Report"}
-              </h1>
-              <p className="text-xs text-[#6B7280] font-medium mt-0.5">
-                {periodFormatted}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => loadReportData(true)}
-                disabled={isRegenerating}
-                className="p-2 rounded-full text-[#7A7165] hover:bg-black/5 active:scale-95 transition-all cursor-pointer"
-                title={isAm ? "ሪፖርቱን እንደገና አዘጋጅ" : "Re-aggregate summary"}
-              >
-                <RefreshCw size={17} className={isRegenerating ? "animate-spin text-[#2D6A4F]" : ""} />
-              </button>
-              <Header />
-            </div>
-          </div>
+       {/* Top Header Bar */}
+    <header className="px-5 pt-4 pb-2">
+      {/* Top bar with Language Toggle */}
+      <Header showBack={false} />
 
-          {/* Active Contact Header Badge */}
-          <div className="mt-3 p-3 rounded-2xl bg-white border border-[#E8E1D5] shadow-xs flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-xl bg-[#E8F5E9] text-[#2D6A4F] flex items-center justify-center flex-shrink-0">
-                <Stethoscope size={16} />
-              </span>
-              <div>
-                <p className="text-[10px] font-semibold text-[#6B7280]">
-                  {isAm ? "የተጠናቀረ የህክምና ወቅት" : "Active Aggregation Window"}
-                </p>
-                <p className="text-xs font-bold text-[#1F2937]">{contactTitle}</p>
-              </div>
-            </div>
-            {summary?.target_gestational_weeks && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F4EFE6] text-[#2D6A4F]">
-                {summary.target_gestational_weeks}w Contact
-              </span>
-            )}
-          </div>
-        </header>
+      {/* Page Title & Refresh Action Row */}
+      <div className="mt-2 flex items-start justify-between">
+        <div className="pr-3">
+          <h1 className="text-lg sm:text-xl font-extrabold text-[#1F2937] tracking-tight">
+            {isAm ? "የክሊኒክ የጤና ሪፖርት" : "Clinician ANC Report"}
+      </h1>
+      <p className="text-xs text-[#6B7280] font-medium mt-0.5">
+        {periodFormatted}
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => loadReportData(true)}
+      disabled={isRegenerating}
+      className="p-2 rounded-xl bg-white border border-[#E8E1D5] text-[#7A7165] hover:bg-neutral-50 active:scale-95 transition-all cursor-pointer shadow-xs flex-shrink-0"
+      title={isAm ? "ሪፖርቱን እንደገና አዘጋጅ" : "Re-aggregate summary"}
+    >
+      <RefreshCw size={15} className={isRegenerating ? "animate-spin text-[#2D6A4F]" : ""} />
+    </button>
+  </div>
+
+  {/* Active Contact Header Badge */}
+  <div className="mt-3 p-3 rounded-2xl bg-white border border-[#E8E1D5] shadow-xs flex items-center justify-between">
+    <div className="flex items-center gap-2.5">
+      <span className="w-8 h-8 rounded-xl bg-[#E8F5E9] text-[#2D6A4F] flex items-center justify-center flex-shrink-0">
+        <Stethoscope size={16} />
+      </span>
+      <div>
+        <p className="text-[10px] font-semibold text-[#6B7280]">
+          {isAm ? "የተጠናቀረ የህክምና ወቅት" : "Active Aggregation Window"}
+        </p>
+        <p className="text-xs font-bold text-[#1F2937]">{contactTitle}</p>
+      </div>
+    </div>
+    {summary?.target_gestational_weeks && (
+      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F4EFE6] text-[#2D6A4F]">
+        {summary.target_gestational_weeks}w Contact
+      </span>
+    )}
+      </div>
+    </header>
+           
 
         {/* Main Telemetry Body */}
         <main className="flex-1 px-5 py-2 space-y-3.5 overflow-y-auto">

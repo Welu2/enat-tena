@@ -141,17 +141,17 @@ export default function HistoryPage() {
   return (
     <div className="min-h-dvh max-w-lg mx-auto w-full flex flex-col justify-between pb-24 font-sans select-none bg-[#FAF7F2] text-[#2C2723]">
       <div className="p-4 sm:p-5">
-        <Header showBack={true} onBack={() => router.push("/home")} />
+        <Header showBack={false} />
 
-        <div className="mt-4 mb-4">
-          <h1 className="text-lg sm:text-xl font-bold text-[#1F2937] flex items-center gap-2">
-            <HeartPulse className="text-[#2D6A4F]" size={20} />
-            <span>{isAm ? "የክሊኒካል ምርመራዎች ታሪክ" : "Daily Clinical Timeline"}</span>
-          </h1>
-          <p className="text-xs text-[#6B7280] mt-0.5">
-            {isAm ? "ሙሉ ዝርዝር ለማየት ቀኑን ይጫኑ" : "Tap any day to inspect full clinical details"}
-          </p>
-        </div>
+       <div className="mt-2 mb-4 pr-24">
+  <h1 className="text-base sm:text-lg font-bold text-[#1F2937] flex items-center gap-2 leading-snug">
+    <HeartPulse className="text-[#2D6A4F] shrink-0" size={20} />
+    <span>{isAm ? "የክሊኒካል ምርመራዎች ታሪክ" : "Daily Clinical Timeline"}</span>
+  </h1>
+  <p className="text-[11px] sm:text-xs text-[#6B7280] mt-0.5">
+    {isAm ? "ሙሉ ዝርዝር ለማየት ቀኑን ይጫኑ" : "Tap any day to inspect full clinical details"}
+  </p>
+</div>
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-2">

@@ -281,7 +281,8 @@ export default function SettingsPage() {
               {isAm ? "የህክምና መረጃ እና ማስታወሻዎች" : "Personal profile & clinical preferences"}
             </p>
           </div>
-          <Header />
+           <Header showBack={false} />
+
         </header>
 
         {/* Main Settings Body */}
