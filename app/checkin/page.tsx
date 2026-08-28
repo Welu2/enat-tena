@@ -60,7 +60,6 @@ const STAGE_METADATA: Record<
   },
 };
 
-// Bilingual question dictionary to ensure English toggle renders English prompts
 const STAGE_QUESTIONS: Record<CheckInStage, { am: string; en: string }> = {
   symptoms: {
     am: "ዛሬ ጽኑ ራስ ምታት፣ የዓይን ብዥታ፣ ደም መፍሰስ፣ ፈሳሽ መፍሰስ ወይም ከፍተኛ የሆድ ህመም ተሰምቶዎታል?",
@@ -85,7 +84,6 @@ export default function CheckinWizardPage() {
   const { lang } = useLanguage();
   const isAm = lang === "am";
 
-  // State Machine & Session State
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentStage, setCurrentStage] = useState<CheckInStage>("symptoms");
   const [backendPrompt, setBackendPrompt] = useState<string>("");
@@ -93,36 +91,21 @@ export default function CheckinWizardPage() {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [transcript, setTranscript] = useState<string>("");
 
-  // Loading, Transcribing & Progression States
   const [isInitializing, setIsInitializing] = useState(true);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isAdvancingStage, setIsAdvancingStage] = useState(false);
   const [completionSummary, setCompletionSummary] = useState<CompleteStageResponse | null>(null);
 
-  // Audio Playback State
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
-  // Inline Item Editing & Single-Item Voice Correction
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [voiceCorrectingItemId, setVoiceCorrectingItemId] = useState<string | null>(null);
 
-  // Manual Text Input Fallback
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualText, setManualText] = useState("");
-
-  // Debugger Trace Logs
   const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
-
-  // Browser Audio Recorder Hook
-  const {
-    isRecording,
-    recordingTime,
-    startRecording,
-    stopRecording,
-    cancelRecording,
-  } = useVoiceRecorder();
 
   const appendDebugLog = useCallback(
     (action: string, status: "pending" | "success" | "error", latencyMs?: number, payload?: unknown, response?: unknown) => {
@@ -139,111 +122,13 @@ export default function CheckinWizardPage() {
     []
   );
 
-  // Computed Prompt based on Active Language Toggle
   const activePrompt = isAm
     ? backendPrompt || STAGE_QUESTIONS[currentStage]?.am || ""
     : STAGE_QUESTIONS[currentStage]?.en || backendPrompt || "";
 
-  // =========================================================
-  // 1. Initialize Intake Session (POST /checkin/start)
-  // =========================================================
-  const initializeSession = useCallback(async () => {
-    setIsInitializing(true);
-    const startTime = Date.now();
-
-    try {
-      appendDebugLog("POST /checkin/start", "pending");
-      const res = await checkinService.startSession();
-      const latency = Date.now() - startTime;
-
-      setSessionId(res.session_id);
-      setCurrentStage(res.stage);
-      setBackendPrompt(res.question_prompt);
-      setQuestionAudioUrl(res.question_audio_url);
-      setPendingItems([]);
-      setTranscript("");
-
-      appendDebugLog("POST /checkin/start", "success", latency, null, res);
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      appendDebugLog("POST /checkin/start", "error", Date.now() - startTime, null, { error: errorMsg });
-    } finally {
-      setIsInitializing(false);
-    }
-  }, [appendDebugLog]);
-
-  useEffect(() => {
-    initializeSession();
-    return () => {
-      stopAudioPlayback();
-    };
-  }, [initializeSession]);
-
-  // =========================================================
-  // 2. Audio Playback Controls (Language-aware)
-  // =========================================================
-  const stopAudioPlayback = () => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current = null;
-    }
-    if (typeof window !== "undefined") {
-      window.speechSynthesis?.cancel();
-    }
-    setIsPlayingAudio(false);
-  };
-
-  const playAmharicBackendAudio = (url: string) => {
-    stopAudioPlayback();
-    const fullUrl = apiClient.getFullUrl(url);
-    const audio = new Audio(fullUrl);
-    audioPlayerRef.current = audio;
-
-    audio.onplay = () => setIsPlayingAudio(true);
-    audio.onended = () => setIsPlayingAudio(false);
-    audio.onerror = () => {
-      setIsPlayingAudio(false);
-    };
-
-    audio.play().catch(() => setIsPlayingAudio(false));
-  };
-
-  const togglePromptAudio = () => {
-    if (isPlayingAudio) {
-      stopAudioPlayback();
-      return;
-    }
-
-    if (isAm) {
-      if (questionAudioUrl) {
-        playAmharicBackendAudio(questionAudioUrl);
-      } else {
-        const streamUrl = `/tts?text=${encodeURIComponent(activePrompt)}`;
-        playAmharicBackendAudio(streamUrl);
-      }
-    } else {
-      // English audio reading via Web Speech API
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(activePrompt);
-        utterance.lang = "en-US";
-        utterance.rate = 0.9;
-        utterance.onstart = () => setIsPlayingAudio(true);
-        utterance.onend = () => setIsPlayingAudio(false);
-        utterance.onerror = () => setIsPlayingAudio(false);
-        window.speechSynthesis.speak(utterance);
-      }
-    }
-  };
-
-  // =========================================================
-  // 3. Voice Recording & Clinical ASR Upload (POST /checkin/{id}/respond)
-  // =========================================================
-  const handleToggleRecording = async () => {
-    stopAudioPlayback();
-
-    if (isRecording) {
-      const audioBlob = await stopRecording();
+  // Dedicated Audio Transmission to Addis AI
+  const processVoiceResponse = useCallback(
+    async (audioBlob: Blob) => {
       if (!audioBlob || !sessionId) return;
 
       setIsTranscribing(true);
@@ -263,33 +148,24 @@ export default function CheckinWizardPage() {
 
         appendDebugLog(`POST /checkin/${sessionId}/respond`, "success", latency, null, res);
 
-        // Read back verification phrase if in Amharic mode
         const firstItem = res.pending_items[0];
         if (isAm && firstItem?.verification_audio_url) {
           playAmharicBackendAudio(firstItem.verification_audio_url);
         }
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
         appendDebugLog(`POST /checkin/${sessionId}/respond`, "error", Date.now() - startTime, null, {
           error: errorMsg,
         });
       } finally {
         setIsTranscribing(false);
       }
-    } else {
-      await startRecording();
-    }
-  };
+    },
+    [sessionId, currentStage, isAm, appendDebugLog]
+  );
 
-  // =========================================================
-  // 4. Single-Item Voice Correction
-  // =========================================================
-  const handleToggleItemVoiceCorrection = async (itemId: string) => {
-    stopAudioPlayback();
-
-    if (voiceCorrectingItemId === itemId) {
-      const audioBlob = await stopRecording();
-      setVoiceCorrectingItemId(null);
+  const processItemVoiceCorrection = useCallback(
+    async (audioBlob: Blob, itemId: string) => {
       if (!audioBlob || !sessionId) return;
 
       setIsTranscribing(true);
@@ -303,12 +179,135 @@ export default function CheckinWizardPage() {
         setPendingItems(res.pending_items);
         appendDebugLog(`POST /checkin/.../voice-correct`, "success", latency, null, res);
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
         appendDebugLog(`POST /checkin/.../voice-correct`, "error", Date.now() - startTime, null, {
           error: errorMsg,
         });
       } finally {
         setIsTranscribing(false);
+        setVoiceCorrectingItemId(null);
+      }
+    },
+    [sessionId, appendDebugLog]
+  );
+
+  // Hook receives callback to dispatch audio on 45s expiration
+  const {
+    isRecording,
+    recordingTime,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useVoiceRecorder(45, (autoStoppedBlob) => {
+    if (voiceCorrectingItemId) {
+      processItemVoiceCorrection(autoStoppedBlob, voiceCorrectingItemId);
+    } else {
+      processVoiceResponse(autoStoppedBlob);
+    }
+  });
+
+  const initializeSession = useCallback(async () => {
+    setIsInitializing(true);
+    const startTime = Date.now();
+
+    try {
+      appendDebugLog("POST /checkin/start", "pending");
+      const res = await checkinService.startSession();
+      const latency = Date.now() - startTime;
+
+      setSessionId(res.session_id);
+      setCurrentStage(res.stage);
+      setBackendPrompt(res.question_prompt);
+      setQuestionAudioUrl(res.question_audio_url);
+      setPendingItems([]);
+      setTranscript("");
+
+      appendDebugLog("POST /checkin/start", "success", latency, null, res);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      appendDebugLog("POST /checkin/start", "error", Date.now() - startTime, null, { error: errorMsg });
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [appendDebugLog]);
+
+  useEffect(() => {
+    initializeSession();
+    return () => {
+      stopAudioPlayback();
+    };
+  }, [initializeSession]);
+
+  const stopAudioPlayback = () => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    if (typeof window !== "undefined") {
+      window.speechSynthesis?.cancel();
+    }
+    setIsPlayingAudio(false);
+  };
+
+  const playAmharicBackendAudio = (url: string) => {
+    stopAudioPlayback();
+    const fullUrl = apiClient.getFullUrl(url);
+    const audio = new Audio(fullUrl);
+    audioPlayerRef.current = audio;
+
+    audio.onplay = () => setIsPlayingAudio(true);
+    audio.onended = () => setIsPlayingAudio(false);
+    audio.onerror = () => setIsPlayingAudio(false);
+    audio.play().catch(() => setIsPlayingAudio(false));
+  };
+
+  const togglePromptAudio = () => {
+    if (isPlayingAudio) {
+      stopAudioPlayback();
+      return;
+    }
+
+    if (isAm) {
+      if (questionAudioUrl) {
+        playAmharicBackendAudio(questionAudioUrl);
+      } else {
+        const streamUrl = `/tts?text=${encodeURIComponent(activePrompt)}`;
+        playAmharicBackendAudio(streamUrl);
+      }
+    } else {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(activePrompt);
+        utterance.lang = "en-US";
+        utterance.rate = 0.9;
+        utterance.onstart = () => setIsPlayingAudio(true);
+        utterance.onend = () => setIsPlayingAudio(false);
+        utterance.onerror = () => setIsPlayingAudio(false);
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  };
+
+  const handleToggleRecording = async () => {
+    stopAudioPlayback();
+
+    if (isRecording) {
+      const audioBlob = await stopRecording();
+      if (audioBlob) {
+        await processVoiceResponse(audioBlob);
+      }
+    } else {
+      await startRecording();
+    }
+  };
+
+  const handleToggleItemVoiceCorrection = async (itemId: string) => {
+    stopAudioPlayback();
+
+    if (voiceCorrectingItemId === itemId) {
+      const audioBlob = await stopRecording();
+      if (audioBlob) {
+        await processItemVoiceCorrection(audioBlob, itemId);
       }
     } else {
       setVoiceCorrectingItemId(itemId);
@@ -316,9 +315,6 @@ export default function CheckinWizardPage() {
     }
   };
 
-  // =========================================================
-  // 5. Verification & Manual Edits
-  // =========================================================
   const handleToggleConfirm = (itemId: string) => {
     setPendingItems((prev) =>
       prev.map((it) => (it.item_id === itemId ? { ...it, confirmed: !it.confirmed } : it))
@@ -330,11 +326,7 @@ export default function CheckinWizardPage() {
     setPendingItems((prev) =>
       prev.map((it) =>
         it.item_id === itemId
-          ? {
-              ...it,
-              raw_text: editText.trim(),
-              confirmed: true,
-            }
+          ? { ...it, raw_text: editText.trim(), confirmed: true }
           : it
       )
     );
@@ -364,9 +356,6 @@ export default function CheckinWizardPage() {
     setShowManualInput(false);
   };
 
-  // =========================================================
-  // 6. Complete Stage & Advancement
-  // =========================================================
   const handleAdvanceStage = async () => {
     if (!sessionId) return;
     stopAudioPlayback();
@@ -407,7 +396,7 @@ export default function CheckinWizardPage() {
         setShowManualInput(false);
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
       appendDebugLog(`POST /checkin/${sessionId}/complete`, "error", Date.now() - startTime, null, {
         error: errorMsg,
       });
@@ -441,7 +430,6 @@ export default function CheckinWizardPage() {
     );
   }
 
-  // Completion Screen
   if (completionSummary) {
     return (
       <div className="min-h-dvh max-w-md mx-auto w-full flex flex-col justify-between p-6 bg-[#FAF7F2] text-[#2C2723]">
@@ -506,7 +494,6 @@ export default function CheckinWizardPage() {
   return (
     <div className="min-h-dvh w-full bg-[#FAF7F2] text-[#2C2723] flex justify-center">
       <main className="w-full max-w-md flex flex-col justify-between p-5 pb-7 font-sans select-none min-h-dvh">
-        {/* Top Header */}
         <header className="space-y-3">
           <div className="flex items-center justify-between">
             <button
@@ -550,7 +537,6 @@ export default function CheckinWizardPage() {
           </div>
         </header>
 
-        {/* Danger Signs Alert */}
         {hasDangerSigns && (
           <div className="mt-3 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 flex items-start gap-2.5 animate-in fade-in">
             <ShieldAlert size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
@@ -567,7 +553,6 @@ export default function CheckinWizardPage() {
           </div>
         )}
 
-        {/* Dynamic Question Card */}
         <div className="flex-1 flex flex-col justify-between py-4 space-y-4">
           <div className="bg-white rounded-3xl p-5 border border-[#E8E1D5] shadow-xs space-y-3">
             <div className="flex items-center justify-between">
@@ -589,13 +574,11 @@ export default function CheckinWizardPage() {
               </button>
             </div>
 
-            {/* Language-Aware Question Prompt */}
             <h2 className="text-base sm:text-lg font-bold text-[#1F2937] leading-relaxed">
               {activePrompt}
             </h2>
           </div>
 
-          {/* Recording & Input Container */}
           {pendingItems.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center space-y-6 text-center py-6">
               <div className="relative flex items-center justify-center">
@@ -630,15 +613,14 @@ export default function CheckinWizardPage() {
                   {isTranscribing
                     ? isAm ? "በማዳመጥ እና በመተርጎም ላይ..." : "Transcribing with Addis AI..."
                     : isRecording
-                    ? isAm ? `እያዳመጥኩ ነው... (${recordingTime}s)` : `Listening... (${recordingTime}s)`
+                    ? isAm ? `እያዳመጥኩ ነው... (${recordingTime}s/45s)` : `Listening... (${recordingTime}s/45s)`
                     : isAm ? "ድምፅዎን ለመቅረጽ ይጫኑ" : "Tap microphone to speak"}
                 </p>
                 <p className="text-xs text-[#6B7280]">
-                  {isAm ? "በአማርኛ በነጻነት ይናገሩ" : "Speak naturally in Amharic or English"}
+                  {isAm ? "በአማርኛ በነጻነት ይናገሩ (እስከ 45 ሰከንድ)" : "Speak naturally in Amharic or English (max 45s)"}
                 </p>
               </div>
 
-              {/* Manual Input Fallback */}
               {showManualInput ? (
                 <form onSubmit={handleAddManualTextItem} className="w-full space-y-2 animate-in fade-in">
                   <input
@@ -691,7 +673,6 @@ export default function CheckinWizardPage() {
               )}
             </div>
           ) : (
-            /* Structured Verification List */
             <div className="flex-1 flex flex-col justify-between space-y-4">
               <div className="space-y-2.5 overflow-y-auto max-h-[340px] pr-1">
                 <div className="flex items-center justify-between px-1">

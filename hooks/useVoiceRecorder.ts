@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from "react";
 
 export interface UseVoiceRecorderReturn {
   isRecording: boolean;
@@ -6,19 +6,51 @@ export interface UseVoiceRecorderReturn {
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<Blob | null>;
   cancelRecording: () => void;
+  mimeType: string;
   error: string | null;
 }
 
-// Pass the maximum duration (in seconds) as an optional argument
-export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
+const getOptimalMimeType = (): string => {
+  if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
+    return "audio/webm";
+  }
+
+  const supportedTypes = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/wav",
+    "audio/ogg;codecs=opus",
+    "audio/mp4",
+  ];
+
+  for (const type of supportedTypes) {
+    if (MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+
+  return "";
+};
+
+export function useVoiceRecorder(
+  maxDuration = 45,
+  onAutoStop?: (blob: Blob) => void
+): UseVoiceRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [activeMimeType, setActiveMimeType] = useState<string>("audio/webm");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const selectedMimeTypeRef = useRef<string>("audio/webm");
+  const onAutoStopRef = useRef(onAutoStop);
+
+  useEffect(() => {
+    onAutoStopRef.current = onAutoStop;
+  }, [onAutoStop]);
 
   const startRecording = useCallback(async () => {
     setError(null);
@@ -32,19 +64,21 @@ export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         },
       });
       streamRef.current = stream;
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const chosenMime = getOptimalMimeType();
+      selectedMimeTypeRef.current = chosenMime;
+      setActiveMimeType(chosenMime);
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const options: MediaRecorderOptions = chosenMime ? { mimeType: chosenMime } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
@@ -56,20 +90,21 @@ export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Microphone access denied');
+      setError(err instanceof Error ? err.message : "Microphone access denied");
     }
   }, []);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
-      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
         setIsRecording(false);
         resolve(null);
         return;
       }
 
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const cleanType = selectedMimeTypeRef.current.split(";")[0] || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: cleanType });
         audioChunksRef.current = [];
         setIsRecording(false);
 
@@ -91,7 +126,7 @@ export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
   }, []);
 
   const cancelRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
     if (streamRef.current) {
@@ -107,10 +142,14 @@ export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
     setRecordingTime(0);
   }, []);
 
-  // AUTOMATIC ENFORCEMENT
+  // Trigger auto-upload to Addis AI when duration limit is reached
   useEffect(() => {
     if (isRecording && recordingTime >= maxDuration) {
-      stopRecording();
+      stopRecording().then((blob) => {
+        if (blob && onAutoStopRef.current) {
+          onAutoStopRef.current(blob);
+        }
+      });
     }
   }, [isRecording, recordingTime, maxDuration, stopRecording]);
 
@@ -120,6 +159,7 @@ export function useVoiceRecorder(maxDuration = 45): UseVoiceRecorderReturn {
     startRecording,
     stopRecording,
     cancelRecording,
+    mimeType: activeMimeType,
     error,
   };
 }
