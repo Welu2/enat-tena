@@ -306,42 +306,23 @@ export default function HomePage() {
       )}
 
       {/* Header */}
-      <header className="px-4 sm:px-5 pt-3.5 pb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-xs shadow-xs uppercase">
-            {userName.charAt(0)}
-          </div>
-          <div>
-            <h1 className="text-xs sm:text-sm font-bold text-[#1F2937] leading-tight">{userName}</h1>
-            <p className="text-[10px] text-[#6B7280]">
-              {profile?.hospital || (isAm ? "ቅዱስ ጳውሎስ ሆስፒታል" : "St. Paul Hospital")}
-            </p>
-          </div>
-        </div>
+<header className="px-4 sm:px-5 pt-4 pb-2 flex items-center justify-between">
+  {/* User Profile Info */}
+  <div className="flex items-center gap-2.5">
+    <div className="w-9 h-9 rounded-2xl bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-xs shadow-xs uppercase">
+      {userName.charAt(0)}
+    </div>
+    <div>
+      <h1 className="text-xs sm:text-sm font-bold text-[#1F2937] leading-tight">{userName}</h1>
+      <p className="text-[10px] text-[#6B7280]">
+        {profile?.hospital || (isAm ? "ቅዱስ ጳውሎስ ሆስፒታል" : "St. Paul Hospital")}
+      </p>
+    </div>
+  </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowSosModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 text-[11px] font-bold hover:bg-red-100 transition-all cursor-pointer"
-          >
-            <PhoneCall size={11} className="animate-pulse text-red-600" />
-            <span>SOS</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsRefreshing(true);
-              fetchDashboardData();
-            }}
-            className="p-1.5 rounded-full text-[#7A7165] hover:bg-black/5 transition-all cursor-pointer"
-          >
-            <RefreshCw size={14} className={isRefreshing ? "animate-spin text-[#2D6A4F]" : ""} />
-          </button>
-          <Header />
-        </div>
-      </header>
+    <Header showBack={false} />
+ 
+</header>
 
       {/* Main Container */}
       <main className="flex-1 px-4 sm:px-5 py-1.5 space-y-3 overflow-y-auto">
@@ -622,7 +603,7 @@ export default function HomePage() {
       )}
 
       {/* SOS Modal */}
-      {showSosModal && (
+      {/* {showSosModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-xs w-full p-5 space-y-3 shadow-xl">
             <div className="flex justify-between items-center border-b pb-2 text-red-600 font-bold text-sm">
@@ -650,7 +631,7 @@ export default function HomePage() {
             </button>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Go-Bag Modal */}
       {showGoBagModal && (
